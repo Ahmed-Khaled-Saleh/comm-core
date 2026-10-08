@@ -1,0 +1,9 @@
+project:
+  output-dir: _docs
+
+website:
+  title: "comm-core"
+  site-url: "https://Ahmed-Khaled-Saleh.github.io/comm-core"
+  description: "Useful abstractions for Multi-agent learning with communication. "
+  repo-branch: main
+  repo-url: "https://github.com/Ahmed-Khaled-Saleh/comm-core"

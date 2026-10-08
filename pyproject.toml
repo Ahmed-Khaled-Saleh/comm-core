@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "comm-core"
+dynamic = ["version"]
+description = "Useful abstractions for Multi-agent learning with communication. "
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [{name = "Ahmed-Khaled-Saleh", email = "ahmedkhaledsaleh11@gmail.com"}]
+keywords = ['nbdev']
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+]
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/Ahmed-Khaled-Saleh/comm-core"
+Documentation = "https://Ahmed-Khaled-Saleh.github.io/comm-core/"
+
+[project.entry-points.nbdev]
+comm_core = "comm_core._modidx:d"
+
+[tool.setuptools.dynamic]
+version = {attr = "comm_core.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["comm_core"]
+
+[tool.nbdev]
