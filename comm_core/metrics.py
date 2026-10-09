@@ -52,11 +52,11 @@ class MetricsCollector:
     def record(
         self,
         transmission: Transmission,
-        result: CommunicationMetrics | TransmissionResult,
+        result: TransmissionResult,
     ):
 
         if not isinstance(result, TransmissionResult):
-            return
+            raise TypeError(f"expected a TransmissionResult, got {type(result).__name__}")
 
         m = self.metrics
 
@@ -75,6 +75,10 @@ class MetricsCollector:
             m.failed += 1
 
         m.total_energy += result.energy
+
+    def reset(self) -> None:
+        "Start counting again."
+        self.metrics = CommunicationMetrics()
 
     def summary(self) -> CommunicationMetrics:
         return self.metrics

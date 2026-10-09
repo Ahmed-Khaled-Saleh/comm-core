@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import replace
 from typing import Dict, List
 
 from .backend import CommunicationBackend
@@ -46,6 +47,14 @@ class Network:
         )
 
         self.time = 0.0
+
+    def reset(self, seed: int | None = None) -> None:
+        "Start over (e.g. a new episode): clock, queues, inboxes and metrics; `seed` reseeds the backend."
+        self.time = 0.0
+        self._inbox.clear()
+        self.protocol.reset()
+        self.backend.reset(seed)
+        self.metrics.reset()
 
     def send(
         self,
@@ -111,10 +120,11 @@ class Network:
 
             if result.success:
 
+                # what the receiver gets is what the channel delivered (it may differ from what was sent)
                 self._inbox[
                     transmission.receiver
                 ].append(
-                    transmission.message
+                    replace(transmission.message, payload=result.payload)
                 )
 
             results.append(result)

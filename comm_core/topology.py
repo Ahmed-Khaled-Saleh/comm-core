@@ -3,9 +3,10 @@
 # %% ../nbs/topology.ipynb #8cc82277
 from __future__ import annotations
 
+import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, Mapping, Sequence, Tuple
 
 from .core import NodeId
 
@@ -21,10 +22,8 @@ class Link:
 
     enabled: bool = True
 
-
-
 # %% auto #0
-__all__ = ['Link', 'Topology', 'GraphTopology', 'FullMeshTopology', 'StarTopology']
+__all__ = ['Link', 'Topology', 'GraphTopology', 'FullMeshTopology', 'StarTopology', 'distance', 'DistanceTopology']
 
 # %% ../nbs/topology.ipynb #45ee2714
 class Topology(ABC):
@@ -133,4 +132,43 @@ class StarTopology(GraphTopology):
                 Link(node, center)
             )
 
+        super().__init__(links)
+
+# %% ../nbs/topology.ipynb #9bcd3ed0
+def distance(
+    a: Sequence[float], # Position of a node
+    b: Sequence[float], # Position of another node
+    ord: float = 2, # 2: Euclidean, 1: Manhattan, math.inf: Chebyshev (squares on a grid)
+) -> float:
+    "Distance between two positions."
+    d = [abs(x - y) for x, y in zip(a, b)]
+    if ord == math.inf:
+        return max(d, default=0.0)
+    if ord == 1:
+        return sum(d)
+    if ord == 2:
+        return math.sqrt(sum(x * x for x in d))
+    raise ValueError(f"ord: 1, 2 or math.inf, not {ord}")
+
+
+class DistanceTopology(GraphTopology):
+    """
+    Links between the nodes at most `radius` apart (e.g. a radio range).
+    Build a new one when the nodes move.
+    """
+
+    def __init__(
+        self,
+        positions: Mapping[NodeId, Sequence[float]], # Position of every node
+        radius: float, # Largest distance of a link
+        ord: float = 2, # Norm of the distance (see `distance`)
+        **link_kwargs, # Properties of the links (e.g. `bandwidth_hz`)
+    ):
+        ids = list(positions)
+        links = [
+            Link(sender=a, receiver=b, **link_kwargs)
+            for a in ids
+            for b in ids
+            if a != b and distance(positions[a], positions[b], ord) <= radius
+        ]
         super().__init__(links)

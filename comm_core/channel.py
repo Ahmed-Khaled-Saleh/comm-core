@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import random
 from abc import ABC, abstractmethod
 
 from .core import Transmission, TransmissionResult
@@ -27,13 +28,12 @@ class Channel(ABC):
     ) -> TransmissionResult:
         pass
 
-    def reset(self) -> None:
+    def reset(self, seed: int | None = None) -> None:
+        "Start over (e.g. a new episode); `seed` reseeds the channel's random generator, if it has one."
         pass
 
     def update(self, time: float) -> None:
         pass
-
-
 
 # %% ../nbs/channel.ipynb #b13245fb
 class IdentityChannel(Channel):
@@ -73,11 +73,18 @@ class AWGNChannel(Channel):
 
     def __init__(
         self,
-        snr_db: float,
-        packet_error_rate: float = 0.0,
+        snr_db: float, # Signal-to-noise ratio (reported in the results)
+        packet_error_rate: float = 0.0, # Probability that a packet is lost
+        seed: int | None = None, # Seed of the channel's own random generator
     ):
         self.snr_db = snr_db
         self.packet_error_rate = packet_error_rate
+        self.rng = random.Random(seed)
+
+    def reset(self, seed: int | None = None) -> None:
+        "`seed` reseeds the packet losses."
+        if seed is not None:
+            self.rng.seed(seed)
 
     def transmit(
         self,
@@ -85,10 +92,8 @@ class AWGNChannel(Channel):
         link: Link,
     ) -> TransmissionResult:
 
-        import random
-
         success = (
-            random.random()
+            self.rng.random()
             >= self.packet_error_rate
         )
 

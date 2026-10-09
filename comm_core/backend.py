@@ -20,7 +20,8 @@ class CommunicationBackend(ABC):
     ) -> TransmissionResult:
         pass
 
-    def reset(self) -> None:
+    def reset(self, seed: int | None = None) -> None:
+        "Start over; `seed` reseeds the randomness of the simulation."
         pass
 
     def step(self, time: float) -> None:
@@ -46,8 +47,8 @@ class AnalyticalBackend(CommunicationBackend):
             link,
         )
 
-    def reset(self) -> None:
-        self.channel.reset()
+    def reset(self, seed: int | None = None) -> None:
+        self.channel.reset(seed)
 
     def step(self, time: float) -> None:
         self.channel.update(time)

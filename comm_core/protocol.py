@@ -25,6 +25,10 @@ class Protocol(ABC):
     ) -> None:
         pass
 
+    def reset(self) -> None:
+        "Drop the queued messages (e.g. a new episode)."
+        pass
+
     @abstractmethod
     def schedule(
         self,
@@ -32,14 +36,14 @@ class Protocol(ABC):
     ) -> List[Transmission]:
         pass
 
-
-
-
 # %% ../nbs/protocol.ipynb #a8a44d63
 class IdealProtocol(Protocol):
 
     def __init__(self):
         self._queue: Deque[Message] = deque()
+
+    def reset(self) -> None:
+        self._queue.clear()
 
     def submit(
         self,
