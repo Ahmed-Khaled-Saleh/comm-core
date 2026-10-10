@@ -15,7 +15,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
 ]
-dependencies = []
+dependencies = ["numpy"]
 
 [project.urls]
 Repository = "https://github.com/Ahmed-Khaled-Saleh/comm-core"

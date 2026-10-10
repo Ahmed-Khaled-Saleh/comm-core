@@ -44,6 +44,11 @@ from comm_core.backend import (
 
 from .network import Network
 
+from comm_core.sionna_rt import (
+    SionnaRTChannel,
+    packet_error_rate,
+)
+
 from comm_core.metrics import (
     CommunicationMetrics,
     MetricsCollector,
@@ -74,6 +79,9 @@ __all__ = [
     "AnalyticalBackend",
 
     "Network",
+
+    "SionnaRTChannel",
+    "packet_error_rate",
 
     "CommunicationMetrics",
     "MetricsCollector",
