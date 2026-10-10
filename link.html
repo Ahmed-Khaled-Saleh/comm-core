@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.19">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="Every bit of a transmission: codecs, modulation, noise, detection, and the channel built on them.">
+
+<title>Link-level simulation – comm-core</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-bf27225e3a48a9273f3daa8f8e829971.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-f2788e636de456f6409e966386820849.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="styles.css">
+<meta property="og:title" content="Link-level simulation – comm-core">
+<meta property="og:description" content="Every bit of a transmission: codecs, modulation, noise, detection, and the channel built on them.">
+<meta property="og:site_name" content="comm-core">
+<meta name="twitter:title" content="Link-level simulation – comm-core">
+<meta name="twitter:description" content="Every bit of a transmission: codecs, modulation, noise, detection, and the channel built on them.">
+<meta name="twitter:card" content="summary">
+</head>
+
+<body class="nav-sidebar floating nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">comm-core</span>
+    </a>
+  </div>
+        <div class="quarto-navbar-tools tools-end">
+</div>
+          <div id="quarto-search" class="" title="Search"></div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./propagation.html">Radio</a></li><li class="breadcrumb-item"><a href="./link.html">Link-level simulation</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">comm-core</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./principles.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Design principles</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./design.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Architecture</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Examples</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./examples/sharing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Agents sharing what they see</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./examples/medium_access.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Medium access and interference</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./examples/continuous_positions.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Channels at continuous positions</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./examples/fidelity.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Levels of fidelity</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./examples/robot_control.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Robot control over Wi-Fi</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true">
+ <span class="menu-text">Core</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./core.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Core</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./topology.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Topology</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./channel.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Channel</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./protocol.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Protocol</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./backend.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Backend</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./network.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Network</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./metrics.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Metrics</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./init.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Public API</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true">
+ <span class="menu-text">Radio</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./propagation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Propagation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./system.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">System-level simulation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./link.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Link-level simulation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./sionna_rt.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Sionna RT channel</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./sionna_sys.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Sionna SYS</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./sionna_phy.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Sionna PHY</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#bits" id="toc-bits" class="nav-link active" data-scroll-target="#bits">Bits</a></li>
+  <li><a href="#codecs" id="toc-codecs" class="nav-link" data-scroll-target="#codecs">Codecs</a></li>
+  <li><a href="#modulation" id="toc-modulation" class="nav-link" data-scroll-target="#modulation">Modulation</a></li>
+  <li><a href="#noise" id="toc-noise" class="nav-link" data-scroll-target="#noise">Noise</a></li>
+  <li><a href="#link-level-channel" id="toc-link-level-channel" class="nav-link" data-scroll-target="#link-level-channel">Link-level channel</a>
+  <ul class="collapse">
+  <li><a href="#tests" id="toc-tests" class="nav-link" data-scroll-target="#tests">Tests</a></li>
+  </ul></li>
+  <li><a href="#batched-without-a-network" id="toc-batched-without-a-network" class="nav-link" data-scroll-target="#batched-without-a-network">Batched, without a network</a></li>
+  </ul>
+<div class="toc-actions"><ul><li><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div><div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="link.html.md"><i class="bi bi-file-code"></i>Markdown</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./propagation.html">Radio</a></li><li class="breadcrumb-item"><a href="./link.html">Link-level simulation</a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title">Link-level simulation</h1>
+</div>
+
+<div>
+  <div class="description">
+    Every bit of a transmission: codecs, modulation, noise, detection, and the channel built on them.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<!-- WARNING: THIS FILE WAS AUTOGENERATED! DO NOT EDIT! -->
+<p>Link-level simulation in the sense of <a href="https://nvlabs.github.io/sionna/phy/index.html">Sionna PHY</a>: what happens to the bits of one transmission.</p>
+<ol type="1">
+<li>The payload becomes bits (a <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/link.html#codec"><code>Codec</code></a>).</li>
+<li>The bits become symbols (a <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/link.html#modulation"><code>Modulation</code></a>).</li>
+<li>The symbols go through the channel, <code>y = h √P x + n</code>, with <code>h</code> and <code>P</code> from the link budget (see <code>system</code>).</li>
+<li>The receiver detects the bits and decodes them, so it gets the payload with its bit errors.</li>
+</ol>
+<p><a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/link.html#linklevelchannel"><code>LinkLevelChannel</code></a> puts these together as a comm-core <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/channel.html#channel"><code>Channel</code></a>. It is slower than <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/system.html#systemlevelchannel"><code>SystemLevelChannel</code></a>, which skips the bits, and it takes the same fading and power control: the same scenario runs at either level.</p>
+<p>Each piece also works on its own and is vectorized: numpy arrays or torch tensors (on any device), with any batch dimensions in front. Training code can therefore simulate a whole batch of links at once without a <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/network.html#network"><code>Network</code></a> (see the end of this page).</p>
+<section id="bits" class="level2">
+<h2 class="anchored" data-anchor-id="bits">Bits</h2>
+<p>Integers and their bits, least significant bit first. Both functions work on the last dimension.</p>
+<div id="dfac3d70" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-10T20:38:13.903497+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-10T20:38:13.914854+00:00&quot;,&quot;total&quot;:0.01136199199999055}}" data-execution_count="5">
+<hr>
+<p><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/blob/main/comm_core/link.py#L58" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="from_bits" class="level3">
+<h3 class="anchored" data-anchor-id="from_bits">from_bits</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> from_bits(</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    bits, <span class="co"># 0/1 or booleans, (..., M * bits_per_index)</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    bits_per_index:<span class="bu">int</span>, <span class="co"># Bits per integer</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The integers of <code>bits</code> (the inverse of <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/link.html#to_bits"><code>to_bits</code></a>): (…, M).</em></p>
+</section>
+</div>
+<div id="d43bbf91" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-10T20:38:13.915038+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-10T20:38:13.919421+00:00&quot;,&quot;total&quot;:0.004387532000009742}}" data-execution_count="6">
+<hr>
+<p><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/blob/main/comm_core/link.py#L48" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="to_bits" class="level3">
+<h3 class="anchored" data-anchor-id="to_bits">to_bits</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> to_bits(</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    indices, <span class="co"># Integers, (..., M)</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    bits_per_index:<span class="bu">int</span>, <span class="co"># Bits per integer</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The bits of <code>indices</code>: (…, M </em> bits_per_index), least significant bit first.*</p>
+</section>
+</div>
+<div id="13c0afb5" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>x <span class="op">=</span> np.array([[<span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">5</span>, <span class="dv">255</span>], [<span class="dv">128</span>, <span class="dv">7</span>, <span class="dv">2</span>, <span class="dv">3</span>]])</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>b <span class="op">=</span> to_bits(x, <span class="dv">8</span>)</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> b.shape <span class="op">==</span> (<span class="dv">2</span>, <span class="dv">32</span>) <span class="kw">and</span> b[<span class="dv">0</span>, <span class="dv">8</span>:<span class="dv">16</span>].tolist() <span class="op">==</span> [<span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>]       <span class="co"># 1, least significant bit first</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> (from_bits(b, <span class="dv">8</span>) <span class="op">==</span> x).<span class="bu">all</span>() <span class="kw">and</span> (from_bits(b.astype(<span class="bu">bool</span>), <span class="dv">8</span>) <span class="op">==</span> x).<span class="bu">all</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="codecs" class="level2">
+<h2 class="anchored" data-anchor-id="codecs">Codecs</h2>
+<p>A <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/link.html#codec"><code>Codec</code></a> turns a payload into bits and back (source coding). <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/link.html#indexcodec"><code>IndexCodec</code></a> is for discrete messages, e.g.&nbsp;indices into a VQ codebook. <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/link.html#uniformquantizer"><code>UniformQuantizer</code></a> is for real numbers, e.g.&nbsp;latents or positions.</p>
+<div id="5f0a5f08" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-10T20:38:13.925254+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-10T20:38:13.929611+00:00&quot;,&quot;total&quot;:0.0043619049999961135}}" data-execution_count="8">
+<hr>
+<p><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/blob/main/comm_core/link.py#L107" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="uniformquantizer" class="level3">
+<h3 class="anchored" data-anchor-id="uniformquantizer">UniformQuantizer</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> UniformQuantizer(</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    bits:<span class="bu">int</span><span class="op">=</span><span class="dv">8</span>, <span class="co"># Bits per number</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    low:<span class="bu">float</span><span class="op">=-</span><span class="fl">1.0</span>, <span class="co"># Smallest value</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    high:<span class="bu">float</span><span class="op">=</span><span class="fl">1.0</span>, <span class="co"># Largest value</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>*Real numbers in [low, high], each rounded to one of 2**bits evenly spaced levels (values outside are clipped).*</p>
+</section>
+</div>
+<div id="38056453" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-10T20:38:13.929739+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-10T20:38:13.933908+00:00&quot;,&quot;total&quot;:0.0041989399999806665}}" data-execution_count="9">
+<hr>
+<p><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/blob/main/comm_core/link.py#L79" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="indexcodec" class="level3">
+<h3 class="anchored" data-anchor-id="indexcodec">IndexCodec</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> IndexCodec(</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    codebook_size:<span class="bu">int</span><span class="op">=</span><span class="dv">256</span>, <span class="co"># Number of codewords</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Indices into a codebook (e.g.&nbsp;a VQ-VAE’s), with ceil(log2(codebook_size)) bits each.</em></p>
+</section>
+</div>
+<div id="54129aab" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-10T20:38:13.934071+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-10T20:38:13.937961+00:00&quot;,&quot;total&quot;:0.0038936600000170074}}" data-execution_count="10">
+<hr>
+<p><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/blob/main/comm_core/link.py#L67" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="codec" class="level3">
+<h3 class="anchored" data-anchor-id="codec">Codec</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> Codec(</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>args, <span class="op">**</span>kwargs</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Payload &lt;-&gt; bits.</em></p>
+</section>
+</div>
+<div id="22a61d23" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>c <span class="op">=</span> IndexCodec(<span class="dv">256</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> c.bits_per_index <span class="op">==</span> <span class="dv">8</span> <span class="kw">and</span> c.encode([<span class="dv">3</span>, <span class="dv">200</span>]).shape <span class="op">==</span> (<span class="dv">16</span>,) <span class="kw">and</span> c.decode(c.encode([<span class="dv">3</span>, <span class="dv">200</span>])).tolist() <span class="op">==</span> [<span class="dv">3</span>, <span class="dv">200</span>]</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> IndexCodec(<span class="dv">200</span>).bits_per_index <span class="op">==</span> <span class="dv">8</span> <span class="kw">and</span> IndexCodec(<span class="dv">2</span>).bits_per_index <span class="op">==</span> <span class="dv">1</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> bad, err <span class="kw">in</span> (([<span class="fl">1.5</span>], <span class="pp">TypeError</span>), ([<span class="va">True</span>], <span class="pp">TypeError</span>), ([<span class="dv">256</span>], <span class="pp">ValueError</span>), ([<span class="op">-</span><span class="dv">1</span>], <span class="pp">ValueError</span>)):</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span>:</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>        c.encode(bad)<span class="op">;</span> <span class="cf">raise</span> <span class="pp">AssertionError</span>(bad)</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">except</span> err:</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">pass</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>q <span class="op">=</span> UniformQuantizer(bits<span class="op">=</span><span class="dv">8</span>, low<span class="op">=-</span><span class="dv">1</span>, high<span class="op">=</span><span class="dv">1</span>)</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>x <span class="op">=</span> np.array([<span class="op">-</span><span class="fl">1.0</span>, <span class="op">-</span><span class="fl">0.3</span>, <span class="fl">0.0</span>, <span class="fl">0.77</span>, <span class="fl">1.0</span>, <span class="fl">3.0</span>])</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>y <span class="op">=</span> q.decode(q.encode(x))</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> y.shape <span class="op">==</span> x.shape <span class="kw">and</span> np.<span class="bu">abs</span>(y <span class="op">-</span> x.clip(<span class="op">-</span><span class="dv">1</span>, <span class="dv">1</span>)).<span class="bu">max</span>() <span class="op">&lt;=</span> <span class="dv">1</span> <span class="op">/</span> <span class="dv">255</span> <span class="op">+</span> <span class="fl">1e-12</span>      <span class="co"># within half a step (2/255 / 2)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="modulation" class="level2">
+<h2 class="anchored" data-anchor-id="modulation">Modulation</h2>
+<p>A <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/link.html#modulation"><code>Modulation</code></a> maps bits to symbols with average energy 1. It detects them again knowing the channel coefficient <code>h</code> (coherent detection, with perfect channel knowledge at the receiver).</p>
+<div id="2489dfed" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-10T20:38:13.940828+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-10T20:38:13.943260+00:00&quot;,&quot;total&quot;:0.0024344809999661265}}" data-execution_count="12">
+<hr>
+<p><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/blob/main/comm_core/link.py#L142" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="bpsk" class="level3">
+<h3 class="anchored" data-anchor-id="bpsk">BPSK</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> BPSK(</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>args, <span class="op">**</span>kwargs</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Binary phase-shift keying: bit 0 -&gt; -1, bit 1 -&gt; +1.</em></p>
+</section>
+</div>
+<div id="b4559834" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-10T20:38:13.943350+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-10T20:38:13.945712+00:00&quot;,&quot;total&quot;:0.0023651119999499315}}" data-execution_count="13">
+<hr>
+<p><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/blob/main/comm_core/link.py#L128" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="modulation-1" class="level3">
+<h3 class="anchored" data-anchor-id="modulation-1">Modulation</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> Modulation(</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>args, <span class="op">**</span>kwargs</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Bits &lt;-&gt; symbols.</em></p>
+</section>
+</div>
+<div id="72e44fe6" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-10T20:38:13.945806+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-10T20:38:13.948275+00:00&quot;,&quot;total&quot;:0.002471660000026077}}" data-execution_count="14">
+<hr>
+<p><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/blob/main/comm_core/link.py#L150" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="bpsk.demodulate" class="level3">
+<h3 class="anchored" data-anchor-id="bpsk.demodulate">BPSK.demodulate</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> demodulate(</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>    received, h</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Matched filter, which is the maximum-likelihood detector for BPSK: the sign of Re(y h</em>).*</p>
+</section>
+</div>
+<div id="ae198d86" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>bpsk <span class="op">=</span> BPSK()</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>b <span class="op">=</span> np.array([<span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">0</span>])</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> bpsk.modulate(b).tolist() <span class="op">==</span> [<span class="op">-</span><span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">1</span>, <span class="op">-</span><span class="dv">1</span>]</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>h <span class="op">=</span> np.exp(<span class="ot">1j</span> <span class="op">*</span> <span class="fl">2.0</span>)                                               <span class="co"># any phase: the receiver knows h</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> (bpsk.demodulate(h <span class="op">*</span> bpsk.modulate(b), h) <span class="op">==</span> b).<span class="bu">all</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="noise" class="level2">
+<h2 class="anchored" data-anchor-id="noise">Noise</h2>
+<p><a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/link.html#propagate"><code>propagate</code></a> is what the receiver gets: <code>y = h √P x + n</code>, with complex Gaussian noise <code>n ~ CN(0, noise_power)</code>. <code>h</code> and <code>P</code> broadcast against the symbols. With one value per packet, i.e.&nbsp;shape <code>(..., 1)</code>, the channel is flat and constant during the packet.</p>
+<div id="4faa2d4c" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-10T20:38:13.950208+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-10T20:38:13.952768+00:00&quot;,&quot;total&quot;:0.0025634720000198286}}" data-execution_count="16">
+<hr>
+<p><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/blob/main/comm_core/link.py#L172" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="propagate" class="level3">
+<h3 class="anchored" data-anchor-id="propagate">propagate</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> propagate(</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>    symbols, <span class="co"># Transmitted symbols x, (..., num_symbols)</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    h, <span class="co"># Channel coefficients (complex), broadcast against the symbols, e.g. (..., 1): one per packet</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>    power, <span class="co"># Transmit power P, broadcast against the symbols</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>    noise_power, <span class="co"># Noise power at the receiver</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>    rng:NoneType<span class="op">=</span><span class="va">None</span>, <span class="co"># Random generator of the noise (see `awgn`)</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>What the receiver gets: y = h √P x + n.</em></p>
+</section>
+</div>
+<div id="8ddb7934" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-10T20:38:13.952858+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-10T20:38:13.955741+00:00&quot;,&quot;total&quot;:0.002885254000034365}}" data-execution_count="17">
+<hr>
+<p><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/blob/main/comm_core/link.py#L155" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="awgn" class="level3">
+<h3 class="anchored" data-anchor-id="awgn">awgn</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> awgn(</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>    like, <span class="co"># Array or tensor whose shape (and device) the noise takes</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    noise_power, <span class="co"># Noise power (variance of the complex noise)</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    rng:NoneType<span class="op">=</span><span class="va">None</span>, <span class="co"># numpy: a Generator or seed; torch: a torch.Generator or None</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Complex Gaussian noise, CN(0, noise_power).</em></p>
+</section>
+</div>
+<div id="25871a9d" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-10T20:38:13.955834+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-10T20:38:13.956410+00:00&quot;,&quot;total&quot;:0.0005789019999724587}}" data-execution_count="18">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> comm_core.system <span class="im">import</span> bpsk_bit_error_rate, packet_error_rate</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="3c4d8556" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># the simulated bit error rate of BPSK is the analytic one (the PHY abstraction of `system`)</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> np.random.default_rng(<span class="dv">0</span>)</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>b <span class="op">=</span> rng.integers(<span class="dv">0</span>, <span class="dv">2</span>, <span class="dv">200_000</span>)</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> snr_db <span class="kw">in</span> (<span class="dv">0</span>, <span class="dv">4</span>, <span class="dv">7</span>):</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>    noise_power <span class="op">=</span> <span class="dv">10</span> <span class="op">**</span> (<span class="op">-</span>snr_db <span class="op">/</span> <span class="dv">10</span>)                       <span class="co"># P = 1, |h| = 1</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>    h <span class="op">=</span> np.exp(<span class="ot">1j</span> <span class="op">*</span> <span class="fl">0.7</span>)</span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>    errors <span class="op">=</span> (bpsk.demodulate(propagate(bpsk.modulate(b), h, <span class="fl">1.0</span>, noise_power, rng), h) <span class="op">!=</span> b).mean()</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>    expected <span class="op">=</span> bpsk_bit_error_rate(<span class="dv">10</span> <span class="op">**</span> (snr_db <span class="op">/</span> <span class="dv">10</span>))</span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> <span class="bu">abs</span>(errors <span class="op">-</span> expected) <span class="op">&lt;</span> <span class="fl">0.1</span> <span class="op">*</span> expected <span class="op">+</span> <span class="fl">2e-4</span>, (snr_db, errors, expected)</span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>n <span class="op">=</span> awgn(np.zeros(<span class="dv">100_000</span>), <span class="fl">2.0</span>, rng)</span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> n.dtype <span class="op">==</span> <span class="bu">complex</span> <span class="kw">and</span> <span class="bu">abs</span>((np.<span class="bu">abs</span>(n) <span class="op">**</span> <span class="dv">2</span>).mean() <span class="op">-</span> <span class="fl">2.0</span>) <span class="op">&lt;</span> <span class="fl">0.05</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="link-level-channel" class="level2">
+<h2 class="anchored" data-anchor-id="link-level-channel">Link-level channel</h2>
+<p><a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/link.html#linklevelchannel"><code>LinkLevelChannel</code></a> simulates every bit of every transmission, using the pieces above and the link budget of <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/system.html#radiochannel"><code>RadioChannel</code></a> (see <code>system</code>).</p>
+<ul>
+<li><strong>Delivery.</strong> A sent message is delivered with its bit errors (<code>success=True</code>): the payload the receiver gets may differ from what was sent.</li>
+<li><strong>No CRC by default.</strong> Pass <code>drop_corrupted=True</code> to drop corrupted packets instead, like a receiver that checks a CRC.</li>
+<li><strong>Outages</strong> are lost, as at the system level.</li>
+</ul>
+<p><code>size_bits</code> is what the codec produced. <code>error_rate</code> is the transmission’s bit error rate, and <code>metadata</code> adds <code>bit_errors</code>.</p>
+<div id="fa044c91" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-10T20:38:13.962498+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-10T20:38:13.968480+00:00&quot;,&quot;total&quot;:0.0059874269999795615}}" data-execution_count="20">
+<hr>
+<p><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/blob/main/comm_core/link.py#L184" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="linklevelchannel" class="level3">
+<h3 class="anchored" data-anchor-id="linklevelchannel">LinkLevelChannel</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> LinkLevelChannel(</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>    codec:Codec <span class="op">|</span> <span class="va">None</span><span class="op">=</span><span class="va">None</span>, <span class="co"># Payload &lt;-&gt; bits; None: `IndexCodec(256)`</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>    modulation:Modulation <span class="op">|</span> <span class="va">None</span><span class="op">=</span><span class="va">None</span>, <span class="co"># Bits &lt;-&gt; symbols; None: `BPSK()`</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>    fading:Fading <span class="op">|</span> <span class="va">None</span><span class="op">=</span><span class="va">None</span>, <span class="co"># The coefficient h of a transmission; None: h = 1</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>    power_control:PowerControl <span class="op">|</span> <span class="va">None</span><span class="op">=</span><span class="va">None</span>, <span class="co"># Transmit power and outages; None: the link's tx_power_w</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>    noise_power:<span class="bu">float</span><span class="op">=</span><span class="fl">1.0</span>, <span class="co"># Noise power at the receiver (same unit as the power)</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>    drop_corrupted:<span class="bu">bool</span><span class="op">=</span><span class="va">False</span>, <span class="co"># Lose the packets with bit errors (a CRC) instead of delivering them</span></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>    seed:<span class="bu">int</span> <span class="op">|</span> <span class="va">None</span><span class="op">=</span><span class="va">None</span>, <span class="co"># Seed of the noise and the fading</span></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Every bit simulated: payload -&gt; bits -&gt; symbols -&gt; h √P x + n -&gt; detected bits -&gt; payload (with its bit errors).</em></p>
+</section>
+</div>
+<section id="tests" class="level3">
+<h3 class="anchored" data-anchor-id="tests">Tests</h3>
+<div id="c6cd47dc" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-10T20:38:13.968658+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-10T20:38:13.969550+00:00&quot;,&quot;total&quot;:0.0008956149999903573}}" data-execution_count="21">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> comm_core.core <span class="im">import</span> Message</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> comm_core.propagation <span class="im">import</span> NoFading, RayleighFading</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> comm_core.system <span class="im">import</span> ChannelInversion, MessagePower, SystemLevelChannel</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="16a21352" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> send(ch, payload, link<span class="op">=</span>Link(<span class="st">'a'</span>, <span class="st">'b'</span>), n<span class="op">=</span><span class="dv">1</span>, <span class="op">**</span>metadata):</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>    t <span class="op">=</span> Transmission(message<span class="op">=</span>Message(<span class="st">'a'</span>, <span class="st">'b'</span>, payload, metadata<span class="op">=</span>metadata), sender<span class="op">=</span><span class="st">'a'</span>, receiver<span class="op">=</span><span class="st">'b'</span>, start_time<span class="op">=</span><span class="fl">0.0</span>)</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [ch.transmit(t, link) <span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(n)]</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>idx <span class="op">=</span> np.arange(<span class="dv">49</span>) <span class="op">*</span> <span class="dv">5</span>                                          <span class="co"># 49 codebook indices</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>r, <span class="op">=</span> send(LinkLevelChannel(noise_power<span class="op">=</span><span class="fl">1e-6</span>, seed<span class="op">=</span><span class="dv">0</span>), idx)        <span class="co"># 60 dB: no errors</span></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> r.success <span class="kw">and</span> (r.payload <span class="op">==</span> idx).<span class="bu">all</span>() <span class="kw">and</span> r.size_bits <span class="op">==</span> <span class="dv">49</span> <span class="op">*</span> <span class="dv">8</span> <span class="kw">and</span> r.metadata[<span class="st">'bit_errors'</span>] <span class="op">==</span> <span class="dv">0</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="bu">abs</span>(r.snr_db <span class="op">-</span> <span class="dv">60</span>) <span class="op">&lt;</span> <span class="fl">1e-9</span> <span class="kw">and</span> r.energy <span class="op">==</span> <span class="dv">49</span> <span class="op">*</span> <span class="dv">8</span> <span class="kw">and</span> r.latency <span class="op">==</span> <span class="dv">0</span></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a><span class="co"># 0 dB: about 8% of the bits are wrong, and the receiver gets the corrupted indices</span></span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>rs <span class="op">=</span> send(LinkLevelChannel(noise_power<span class="op">=</span><span class="fl">1.0</span>, seed<span class="op">=</span><span class="dv">0</span>), idx, n<span class="op">=</span><span class="dv">50</span>)</span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>ber <span class="op">=</span> np.mean([r.error_rate <span class="cf">for</span> r <span class="kw">in</span> rs])</span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="bu">all</span>(r.success <span class="cf">for</span> r <span class="kw">in</span> rs) <span class="kw">and</span> <span class="bu">abs</span>(ber <span class="op">-</span> bpsk_bit_error_rate(<span class="fl">1.0</span>)) <span class="op">&lt;</span> <span class="fl">0.01</span></span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="kw">not</span> (rs[<span class="dv">0</span>].payload <span class="op">==</span> idx).<span class="bu">all</span>()</span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a><span class="co"># a CRC: corrupted packets are lost</span></span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="kw">not</span> <span class="bu">any</span>(r.success <span class="cf">for</span> r <span class="kw">in</span> send(LinkLevelChannel(noise_power<span class="op">=</span><span class="fl">1.0</span>, drop_corrupted<span class="op">=</span><span class="va">True</span>, seed<span class="op">=</span><span class="dv">0</span>), idx, n<span class="op">=</span><span class="dv">20</span>))</span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a><span class="co"># channel inversion: the weak link (|h|^2 = 0.01) would need 1000 &gt; 10: outage, nothing sent</span></span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> h, sent <span class="kw">in</span> ((<span class="fl">1.2</span>, <span class="va">True</span>), (<span class="fl">0.1</span>, <span class="va">False</span>)):</span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a>    r, <span class="op">=</span> send(LinkLevelChannel(fading<span class="op">=</span>NoFading(h), power_control<span class="op">=</span>ChannelInversion(<span class="dv">10</span>, max_power<span class="op">=</span><span class="dv">10</span>), seed<span class="op">=</span><span class="dv">0</span>), idx)</span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> r.success <span class="op">==</span> sent <span class="kw">and</span> r.size_bits <span class="op">==</span> (<span class="dv">392</span> <span class="cf">if</span> sent <span class="cf">else</span> <span class="dv">0</span>) <span class="kw">and</span> r.metadata.get(<span class="st">'outage'</span>, <span class="va">False</span>) <span class="op">!=</span> sent</span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> sent:</span>
+<span id="cb18-21"><a href="#cb18-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">assert</span> <span class="bu">abs</span>(r.snr_db <span class="op">-</span> <span class="dv">10</span>) <span class="op">&lt;</span> <span class="fl">1e-6</span></span>
+<span id="cb18-22"><a href="#cb18-22" aria-hidden="true" tabindex="-1"></a><span class="co"># the sender chooses the power</span></span>
+<span id="cb18-23"><a href="#cb18-23" aria-hidden="true" tabindex="-1"></a>ch <span class="op">=</span> LinkLevelChannel(power_control<span class="op">=</span>MessagePower(), seed<span class="op">=</span><span class="dv">0</span>)</span>
+<span id="cb18-24"><a href="#cb18-24" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="kw">not</span> send(ch, idx)[<span class="dv">0</span>].success <span class="kw">and</span> send(ch, idx, tx_power<span class="op">=</span><span class="fl">100.0</span>)[<span class="dv">0</span>].metadata[<span class="st">'tx_power'</span>] <span class="op">==</span> <span class="fl">100.0</span></span>
+<span id="cb18-25"><a href="#cb18-25" aria-hidden="true" tabindex="-1"></a><span class="co"># a finite bandwidth: latency = symbols / bandwidth, energy = power x latency</span></span>
+<span id="cb18-26"><a href="#cb18-26" aria-hidden="true" tabindex="-1"></a>r, <span class="op">=</span> send(LinkLevelChannel(noise_power<span class="op">=</span><span class="fl">1e-6</span>), idx, link<span class="op">=</span>Link(<span class="st">'a'</span>, <span class="st">'b'</span>, bandwidth_hz<span class="op">=</span><span class="fl">1e6</span>, tx_power_w<span class="op">=</span><span class="fl">0.5</span>))</span>
+<span id="cb18-27"><a href="#cb18-27" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="bu">abs</span>(r.latency <span class="op">-</span> <span class="fl">392e-6</span>) <span class="op">&lt;</span> <span class="fl">1e-15</span> <span class="kw">and</span> <span class="bu">abs</span>(r.energy <span class="op">-</span> <span class="fl">0.5</span> <span class="op">*</span> <span class="fl">392e-6</span>) <span class="op">&lt;</span> <span class="fl">1e-15</span></span>
+<span id="cb18-28"><a href="#cb18-28" aria-hidden="true" tabindex="-1"></a><span class="co"># Rayleigh fading: varying SNR, reproducible with reset(seed)</span></span>
+<span id="cb18-29"><a href="#cb18-29" aria-hidden="true" tabindex="-1"></a>ch <span class="op">=</span> LinkLevelChannel(fading<span class="op">=</span>RayleighFading(), noise_power<span class="op">=</span><span class="fl">0.1</span>)</span>
+<span id="cb18-30"><a href="#cb18-30" aria-hidden="true" tabindex="-1"></a>ch.reset(seed<span class="op">=</span><span class="dv">1</span>)<span class="op">;</span> first <span class="op">=</span> [r.snr_db <span class="cf">for</span> r <span class="kw">in</span> send(ch, idx, n<span class="op">=</span><span class="dv">5</span>)]</span>
+<span id="cb18-31"><a href="#cb18-31" aria-hidden="true" tabindex="-1"></a>ch.reset(seed<span class="op">=</span><span class="dv">1</span>)<span class="op">;</span> <span class="cf">assert</span> [r.snr_db <span class="cf">for</span> r <span class="kw">in</span> send(ch, idx, n<span class="op">=</span><span class="dv">5</span>)] <span class="op">==</span> first <span class="kw">and</span> <span class="bu">len</span>(<span class="bu">set</span>(first)) <span class="op">==</span> <span class="dv">5</span></span>
+<span id="cb18-32"><a href="#cb18-32" aria-hidden="true" tabindex="-1"></a><span class="co"># real numbers: quantized to 8 bits</span></span>
+<span id="cb18-33"><a href="#cb18-33" aria-hidden="true" tabindex="-1"></a>r, <span class="op">=</span> send(LinkLevelChannel(codec<span class="op">=</span>UniformQuantizer(<span class="dv">8</span>, <span class="op">-</span><span class="dv">1</span>, <span class="dv">1</span>), noise_power<span class="op">=</span><span class="fl">1e-6</span>), np.array([<span class="fl">0.25</span>, <span class="op">-</span><span class="fl">0.5</span>]))</span>
+<span id="cb18-34"><a href="#cb18-34" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> r.size_bits <span class="op">==</span> <span class="dv">16</span> <span class="kw">and</span> np.allclose(r.payload, [<span class="fl">0.25</span>, <span class="op">-</span><span class="fl">0.5</span>], atol<span class="op">=</span><span class="dv">1</span> <span class="op">/</span> <span class="dv">255</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>The two levels agree. With a CRC, the link-level channel loses packets as often as the system level’s PHY abstraction says it does:</p>
+<div id="d9860d91" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>idx <span class="op">=</span> np.arange(<span class="dv">8</span>) <span class="op">*</span> <span class="dv">30</span>                                          <span class="co"># 64 bits</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> snr_db <span class="kw">in</span> (<span class="dv">4</span>, <span class="dv">6</span>, <span class="dv">8</span>):</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>    noise <span class="op">=</span> <span class="dv">10</span> <span class="op">**</span> (<span class="op">-</span>snr_db <span class="op">/</span> <span class="dv">10</span>)</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>    link_level <span class="op">=</span> LinkLevelChannel(noise_power<span class="op">=</span>noise, drop_corrupted<span class="op">=</span><span class="va">True</span>, seed<span class="op">=</span><span class="dv">0</span>)</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>    lost <span class="op">=</span> <span class="dv">1</span> <span class="op">-</span> np.mean([r.success <span class="cf">for</span> r <span class="kw">in</span> send(link_level, idx, n<span class="op">=</span><span class="dv">1000</span>)])</span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>    expected <span class="op">=</span> packet_error_rate(snr_db, <span class="dv">64</span>)</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> <span class="bu">abs</span>(lost <span class="op">-</span> expected) <span class="op">&lt;</span> <span class="fl">0.04</span>, (snr_db, lost, expected)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>With interference (see <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/system.html#interferencebackend"><code>InterferenceBackend</code></a>), the link level adds it to the noise of every bit, and gives the BER of the SINR:</p>
+<div id="50569cad" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-10T20:38:13.972868+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-10T20:38:13.973602+00:00&quot;,&quot;total&quot;:0.0007380799999623378}}" data-execution_count="22">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> comm_core.propagation <span class="im">import</span> RayTracedFading</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> comm_core.system <span class="im">import</span> InterferenceBackend</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="3f499523" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>xs <span class="op">=</span> np.arange(<span class="dv">5</span>)</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>d <span class="op">=</span> np.<span class="bu">abs</span>(np.subtract.outer(xs, xs)).astype(<span class="bu">float</span>)</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>table <span class="op">=</span> RayTracedFading(np.where(d <span class="op">&gt;</span> <span class="dv">0</span>, <span class="fl">1e-3</span> <span class="op">/</span> np.maximum(d, <span class="dv">1</span>) <span class="op">**</span> <span class="fl">1.5</span>, <span class="dv">0</span>), [(x, <span class="dv">0</span>) <span class="cf">for</span> x <span class="kw">in</span> xs],</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>                        node_positions<span class="op">=</span>{<span class="st">'a'</span>: (<span class="dv">0</span>, <span class="dv">0</span>), <span class="st">'b'</span>: (<span class="dv">1</span>, <span class="dv">0</span>), <span class="st">'c'</span>: (<span class="dv">2</span>, <span class="dv">0</span>), <span class="st">'d'</span>: (<span class="dv">3</span>, <span class="dv">0</span>)})</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>backend <span class="op">=</span> InterferenceBackend(LinkLevelChannel(fading<span class="op">=</span>table, noise_power<span class="op">=</span><span class="fl">1e-10</span>, seed<span class="op">=</span><span class="dv">0</span>))</span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>pair <span class="op">=</span> <span class="kw">lambda</span> s, r: (Transmission(Message(s, r, np.arange(<span class="dv">256</span>) <span class="op">%</span> <span class="dv">256</span>), s, r, <span class="fl">0.0</span>), Link(s, r))</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>r, _ <span class="op">=</span> backend.transmit_all([pair(<span class="st">'a'</span>, <span class="st">'b'</span>), pair(<span class="st">'c'</span>, <span class="st">'d'</span>)])        <span class="co"># c is as close to b as a: SINR about 0 dB</span></span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>sinr <span class="op">=</span> <span class="fl">1e-6</span> <span class="op">/</span> (<span class="fl">1e-10</span> <span class="op">+</span> <span class="fl">1e-6</span>)</span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="bu">abs</span>(r.snr_db <span class="op">-</span> <span class="dv">10</span> <span class="op">*</span> np.log10(sinr)) <span class="op">&lt;</span> <span class="fl">1e-9</span> <span class="kw">and</span> <span class="bu">abs</span>(r.metadata[<span class="st">'interference_power'</span>] <span class="op">-</span> <span class="fl">1e-6</span>) <span class="op">&lt;</span> <span class="fl">1e-18</span></span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="bu">abs</span>(r.error_rate <span class="op">-</span> bpsk_bit_error_rate(sinr)) <span class="op">&lt;</span> <span class="fl">0.02</span> <span class="kw">and</span> r.success</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+</section>
+<section id="batched-without-a-network" class="level2">
+<h2 class="anchored" data-anchor-id="batched-without-a-network">Batched, without a network</h2>
+<p>Training code can apply the same steps to a whole batch of links at once, on numpy arrays or torch tensors, e.g. <code>B·T</code> samples × <code>n</code> neighbours, each sending 49 codebook indices, with channel inversion. Here <code>csi</code> holds the coefficients <code>(B·T, n, 1)</code>, and links in an outage get the null index <code>codebook_size</code>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>codec, bpsk <span class="op">=</span> IndexCodec(<span class="dv">256</span>), BPSK()</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>power, send <span class="op">=</span> ChannelInversion(target_snr_db<span class="op">=</span><span class="dv">10</span>, max_power<span class="op">=</span><span class="dv">10</span>).allocate(csi.<span class="bu">abs</span>() <span class="op">**</span> <span class="dv">2</span>, noise_power)</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>x <span class="op">=</span> bpsk.modulate(codec.encode(msg_indices[:, <span class="va">None</span>, :]))           <span class="co"># (B·T, 1, 392), the same message to every neighbour</span></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>y <span class="op">=</span> propagate(x, csi, power, noise_power)                          <span class="co"># (B·T, n, 392)</span></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>received <span class="op">=</span> codec.decode(bpsk.demodulate(y, csi))                   <span class="co"># (B·T, n, 49)</span></span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>received <span class="op">=</span> torch.where(send, received, codec.codebook_size)        <span class="co"># nothing received in an outage</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/Ahmed-Khaled-Saleh\.github\.io\/comm-core");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div></div></footer></body></html>
