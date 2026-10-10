@@ -30,6 +30,7 @@ from comm_core.channel import (
     Channel,
     IdentityChannel,
     AWGNChannel,
+    FragmentingChannel,
 )
 
 from comm_core.protocol import (
@@ -52,11 +53,19 @@ from comm_core.propagation import (
     NoFading,
     RayleighFading,
     RayTracedFading,
+    RayTracedPathsFading,
+    GilbertElliottFading,
+    grid_points,
 )
 
 from comm_core.system import (
     bpsk_bit_error_rate,
     packet_error_rate,
+    ErrorModel,
+    BPSKErrorModel,
+    ThresholdErrorModel,
+    EESMErrorModel,
+    eesm,
     PowerControl,
     FixedPower,
     ChannelInversion,
@@ -80,7 +89,11 @@ from comm_core.link import (
     LinkLevelChannel,
 )
 
-from .sionna_rt import SionnaRTChannel
+from .sionna_rt import SionnaRTChannel, trace_paths
+
+from .sionna_sys import SionnaErrorModel
+
+from .sionna_phy import SionnaLinkChannel
 
 from comm_core.metrics import (
     CommunicationMetrics,
@@ -104,6 +117,7 @@ __all__ = [
     "Channel",
     "IdentityChannel",
     "AWGNChannel",
+    "FragmentingChannel",
 
     "Protocol",
     "IdealProtocol",
@@ -120,9 +134,17 @@ __all__ = [
     "NoFading",
     "RayleighFading",
     "RayTracedFading",
+    "RayTracedPathsFading",
+    "GilbertElliottFading",
+    "grid_points",
 
     "bpsk_bit_error_rate",
     "packet_error_rate",
+    "ErrorModel",
+    "BPSKErrorModel",
+    "ThresholdErrorModel",
+    "EESMErrorModel",
+    "eesm",
     "PowerControl",
     "FixedPower",
     "ChannelInversion",
@@ -144,6 +166,9 @@ __all__ = [
     "LinkLevelChannel",
 
     "SionnaRTChannel",
+    "trace_paths",
+    "SionnaErrorModel",
+    "SionnaLinkChannel",
 
     "CommunicationMetrics",
     "MetricsCollector",

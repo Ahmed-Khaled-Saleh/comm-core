@@ -48,23 +48,31 @@ print(f'{len(received)} of 100 latents arrived ({m.packet_loss:.0%} lost), {m.bi
 
 To change what happens to the messages, swap the channel and leave the learning code as it is:
 
-- `IdentityChannel()` is perfect.
+- [`IdentityChannel()`](https://Ahmed-Khaled-Saleh.github.io/comm-core/channel.html#identitychannel) is perfect.
 - `SystemLevelChannel(...)` loses packets with the error rate of their SNR.
 - `LinkLevelChannel(...)` simulates every bit, so payloads arrive with bit errors.
 
-To decide when messages go out, swap the protocol, e.g. `TDMAProtocol`.
+To decide when messages go out, swap the protocol, e.g. [`TDMAProtocol`](https://Ahmed-Khaled-Saleh.github.io/comm-core/protocol.html#tdmaprotocol).
 
 ## Documentation
 
-- [Design](https://Ahmed-Khaled-Saleh.github.io/comm-core/design.html): the abstractions, the life of a message, the levels of fidelity, interference,
-  and how to extend them.
+- [Design principles](https://Ahmed-Khaled-Saleh.github.io/comm-core/principles.html): the rules comm-core is built by, and why.
+- [Architecture](https://Ahmed-Khaled-Saleh.github.io/comm-core/design.html): the pieces, the life of a message, time, fidelity, interference, extending.
+- **Examples**, with their results:
+  - [Agents sharing what they see](https://Ahmed-Khaled-Saleh.github.io/comm-core/examples/sharing.html): losses that depend on where agents are.
+  - [Medium access and interference](https://Ahmed-Khaled-Saleh.github.io/comm-core/examples/medium_access.html): throughput and staleness as agents
+    are added.
+  - [Channels at continuous positions](https://Ahmed-Khaled-Saleh.github.io/comm-core/examples/continuous_positions.html): ray-traced paths moved to
+    any position.
+  - [Levels of fidelity](https://Ahmed-Khaled-Saleh.github.io/comm-core/examples/fidelity.html): from an analytic formula to every bit of 5G NR.
+  - [Robot control over Wi-Fi](https://Ahmed-Khaled-Saleh.github.io/comm-core/examples/robot_control.html): a custom channel model, built from the
+    pieces.
 - **Core:** [core](https://Ahmed-Khaled-Saleh.github.io/comm-core/core.html), [topology](https://Ahmed-Khaled-Saleh.github.io/comm-core/topology.html), [channel](https://Ahmed-Khaled-Saleh.github.io/comm-core/channel.html),
   [protocol](https://Ahmed-Khaled-Saleh.github.io/comm-core/protocol.html), [backend](https://Ahmed-Khaled-Saleh.github.io/comm-core/backend.html), [network](https://Ahmed-Khaled-Saleh.github.io/comm-core/network.html),
   [metrics](https://Ahmed-Khaled-Saleh.github.io/comm-core/metrics.html).
-- **Radio:** [propagation](https://Ahmed-Khaled-Saleh.github.io/comm-core/propagation.html) (fading, ray-traced tables),
-  [system-level](https://Ahmed-Khaled-Saleh.github.io/comm-core/system.html) (PHY abstraction, power control, interference),
-  [link-level](https://Ahmed-Khaled-Saleh.github.io/comm-core/link.html) (bits, codecs, modulation),
-  [Sionna RT](https://Ahmed-Khaled-Saleh.github.io/comm-core/sionna_rt.html).
+- **Radio:** [propagation](https://Ahmed-Khaled-Saleh.github.io/comm-core/propagation.html), [system level](https://Ahmed-Khaled-Saleh.github.io/comm-core/system.html),
+  [link level](https://Ahmed-Khaled-Saleh.github.io/comm-core/link.html), [Sionna RT](https://Ahmed-Khaled-Saleh.github.io/comm-core/sionna_rt.html), [Sionna SYS](https://Ahmed-Khaled-Saleh.github.io/comm-core/sionna_sys.html),
+  [Sionna PHY](https://Ahmed-Khaled-Saleh.github.io/comm-core/sionna_phy.html).
 
 ## Developer guide
 

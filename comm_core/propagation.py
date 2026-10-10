@@ -7,6 +7,7 @@ Docs: https://Ahmed-Khaled-Saleh.github.io/comm-core/propagation.html.md"""
 # %% ../nbs/propagation.ipynb #b9d0d157
 from __future__ import annotations
 
+import bisect
 import math
 import warnings
 from abc import ABC, abstractmethod
@@ -18,7 +19,8 @@ from .core import NodeId, Transmission
 from .topology import Link
 
 # %% auto #0
-__all__ = ['Fading', 'NoFading', 'RayleighFading', 'RayTracedFading']
+__all__ = ['Fading', 'NoFading', 'RayleighFading', 'GilbertElliottFading', 'RayTracedFading', 'grid_points',
+           'RayTracedPathsFading']
 
 # %% ../nbs/propagation.ipynb #52ddf3cc
 class Fading(ABC):
@@ -31,6 +33,14 @@ class Fading(ABC):
         link: Link, # Its link
     ) -> complex:
         "h of this transmission (math.inf: the nodes are at the same place, which means a perfect link)."
+
+    def response(
+        self,
+        transmission: Transmission, # The transmission (its sender and receiver)
+        link: Link, # Its link
+    ) -> np.ndarray:
+        "h at each subcarrier (a frequency-selective fading); by default flat: one value, `coefficient`."
+        return np.array([complex(self.coefficient(transmission, link))])
 
     def reset(self, seed: int | None = None) -> None:
         "Start over; `seed` reseeds the fading's random generator, if it has one."
@@ -67,6 +77,68 @@ class RayleighFading(Fading):
 
     def coefficient(self, transmission, link):
         return complex(self.rng.standard_normal(), self.rng.standard_normal()) * math.sqrt(self.gain / 2)
+
+# %% ../nbs/propagation.ipynb #1aed6d08
+class GilbertElliottFading(Fading):
+    "Another fading, weakened by `penalty_db` during the bad episodes of a two-state Markov process in time."
+
+    def __init__(
+        self,
+        fading: Fading, # The fading in good times
+        mean_good_s: float = 3.0, # Mean time between bad episodes
+        mean_bad_s: float = 0.6, # Mean length of a bad episode
+        penalty_db: float = 30.0, # How much weaker the channel is during one (SINR drop)
+        seed: int | None = None, # Seed of the episodes
+    ):
+        self.fading, self.mean_good_s, self.mean_bad_s, self.penalty_db = fading, mean_good_s, mean_bad_s, penalty_db
+        self._start(seed)
+
+    def _start(self, seed):
+        self.rng, self.edges, self._end, self._bad = np.random.default_rng(seed), [], 0.0, False
+
+    def _extend(self, until: float) -> None:
+        while self._end <= until:                           # draw the episodes as far as needed (good at time 0)
+            self._end += self.rng.exponential(self.mean_bad_s if self._bad else self.mean_good_s)
+            self.edges.append(self._end)
+            self._bad = not self._bad
+
+    def bad(
+        self,
+        time: float, # A time
+    ) -> bool:
+        "Whether `time` is in a bad episode."
+        self._extend(time)
+        return bisect.bisect_right(self.edges, time) % 2 == 1
+
+    def episodes(
+        self,
+        until: float, # Up to this time
+    ) -> list:
+        "The bad episodes up to `until`: [(start, end), ...]."
+        self._extend(until)
+        e = self.edges
+        return [(e[i], min(e[i + 1], until)) for i in range(0, len(e) - 1, 2) if e[i] < until]
+
+    def reset(self, seed=None):
+        "`seed` draws new episodes (and reseeds the inner fading)."
+        self.fading.reset(seed)
+        if seed is not None:
+            self._start(seed)
+
+    def set_positions(self, positions) -> None:
+        if hasattr(self.fading, 'set_positions'):
+            self.fading.set_positions(positions)
+
+    def _scale(self, transmission) -> float:
+        return 10 ** (-self.penalty_db / 20) if self.bad(transmission.start_time) else 1.0
+
+    def coefficient(self, transmission, link):
+        h = self.fading.coefficient(transmission, link)
+        return h if math.isinf(abs(h)) else h * self._scale(transmission)
+
+    def response(self, transmission, link):
+        h = self.fading.response(transmission, link)
+        return h if np.isinf(h).any() else h * self._scale(transmission)
 
 # %% ../nbs/propagation.ipynb #6b413d3c
 def _key(position) -> tuple:
@@ -137,3 +209,175 @@ class RayTracedFading(Fading):
         "H[rx, tx] at the nodes' current positions (math.inf if co-located)."
         tx, rx = self._index(transmission.sender), self._index(transmission.receiver)
         return math.inf if tx == rx else complex(self.H[rx, tx])
+
+# %% ../nbs/propagation.ipynb #36be3b1b
+def grid_points(
+    lo: Sequence[float], # Lower corner: (x, y) or (x, y, z)
+    hi: Sequence[float], # Upper corner (included when the spacing divides the size)
+    spacing: float, # Distance between neighbouring points, e.g. 0.05 (m)
+    height: float | None = None, # z of the points of a 2-D grid (the antennas' height)
+) -> np.ndarray:
+    "Anchor points on a regular grid: (N, 3)."
+    lo, hi = np.asarray(lo, float), np.asarray(hi, float)
+    if lo.shape != hi.shape or lo.shape[0] not in (2, 3):
+        raise ValueError("lo and hi: both (x, y) or both (x, y, z)")
+    axes = [np.arange(l, h + spacing / 2, spacing) for l, h in zip(lo, hi)]
+    points = np.stack(np.meshgrid(*axes, indexing='ij'), -1).reshape(-1, len(lo))
+    if len(lo) == 2:
+        if height is None:
+            raise ValueError("a 2-D grid needs the antennas' height")
+        points = np.concatenate([points, np.full((len(points), 1), float(height))], axis=1)
+    return points
+
+# %% ../nbs/propagation.ipynb #fc5984c8
+_C = 299_792_458.0                                     # speed of light (m/s)
+
+
+class RayTracedPathsFading(Fading):
+    "Paths ray-traced between anchor points, moved to the nodes' exact positions: continuous positions."
+
+    def __init__(
+        self,
+        tx_points, # Transmitter anchors, (N_tx, 3)
+        rx_points, # Receiver anchors, (N_rx, 3)
+        a, # Complex gain of each path, (N_tx, N_rx, P); 0: no path
+        tau, # Delay of each path (s), (N_tx, N_rx, P)
+        u_tx, # Unit vector in which each path leaves the transmitter, (N_tx, N_rx, P, 3)
+        u_rx, # Unit vector from the receiver towards where each path arrives from, (N_tx, N_rx, P, 3)
+        frequency: float, # Carrier frequency (Hz)
+        subcarriers=None, # Frequencies of the subcarriers relative to the carrier (Hz); None: the carrier alone
+        reciprocal: bool = True, # Links go both ways: a path is also used from its receiver to its transmitter
+        max_distance: float | None = None, # Farthest a node may be from its anchor; beyond it, an error (None: no limit)
+        antenna_height: float | None = None, # z of the nodes given 2-D positions
+        node_positions: Mapping | None = None, # Where the nodes are to begin with (see `set_positions`)
+    ):
+        self.tx_points = np.asarray(tx_points, np.float64).reshape(-1, 3)
+        self.rx_points = np.asarray(rx_points, np.float64).reshape(-1, 3)
+        self.a = np.asarray(a, np.complex128)
+        self.tau = np.asarray(tau, np.float64)
+        self.u_tx = np.asarray(u_tx, np.float64)
+        self.u_rx = np.asarray(u_rx, np.float64)
+        shape = (len(self.tx_points), len(self.rx_points), self.a.shape[-1])
+        for name, arr, s in (('a', self.a, shape), ('tau', self.tau, shape),
+                             ('u_tx', self.u_tx, shape + (3,)), ('u_rx', self.u_rx, shape + (3,))):
+            if arr.shape != s:
+                raise ValueError(f"{name}: {s} for {shape[0]} transmitter and {shape[1]} receiver anchors, not {arr.shape}")
+        self.frequency = float(frequency)
+        self.subcarriers = np.zeros(1) if subcarriers is None else np.asarray(subcarriers, np.float64).reshape(-1)
+        self.reciprocal, self.max_distance, self.antenna_height = reciprocal, max_distance, antenna_height
+        self.node_positions: dict = {}
+        self.set_positions(node_positions or {})
+
+    @classmethod
+    def from_npz(
+        cls,
+        path: str, # .npz written by `save`
+        **kwargs, # The other arguments of `RayTracedPathsFading`
+    ) -> RayTracedPathsFading:
+        "Load ray-traced paths saved with `save`."
+        with np.load(path) as f:
+            arrays = {k: f[k] for k in ('tx_points', 'rx_points', 'a', 'tau', 'u_tx', 'u_rx')}
+            frequency = float(f['frequency'])
+        return cls(**arrays, frequency=frequency, **kwargs)
+
+    def save(
+        self,
+        path: str, # Where to write the .npz
+    ) -> None:
+        "Save the paths (e.g. traced on a GPU node, used anywhere)."
+        np.savez_compressed(path, tx_points=self.tx_points, rx_points=self.rx_points, a=self.a, tau=self.tau,
+                            u_tx=self.u_tx, u_rx=self.u_rx, frequency=self.frequency)
+
+    def set_positions(
+        self,
+        positions: Mapping[NodeId, Sequence], # Position of (some of) the nodes: (x, y, z), or (x, y) with `antenna_height`
+    ) -> None:
+        "Where the nodes are now."
+        for node, p in positions.items():
+            p = np.asarray(p, np.float64).reshape(-1)
+            if p.shape[0] == 2:
+                if self.antenna_height is None:
+                    raise ValueError(f"node {node!r} has a 2-D position: give the antenna_height")
+                p = np.append(p, self.antenna_height)
+            if p.shape[0] != 3:
+                raise ValueError(f"node {node!r}: a position (x, y) or (x, y, z), not {tuple(p)}")
+            self.node_positions[node] = p
+
+    def _position(self, node: NodeId) -> np.ndarray:
+        if node not in self.node_positions:
+            raise KeyError(f"no position for node {node!r}: call set_positions first")
+        return self.node_positions[node]
+
+    @staticmethod
+    def _nearest(points: np.ndarray, p: np.ndarray) -> tuple:
+        d2 = ((points - p) ** 2).sum(-1)
+        i = int(np.argmin(d2))
+        return i, float(np.sqrt(d2[i]))
+
+    def _paths(self, sender: NodeId, receiver: NodeId) -> tuple:
+        "The anchors' paths of a link and how far each end is from its anchor; None if both ends are on the same anchor."
+        ps, pr = self._position(sender), self._position(receiver)
+        i, di = self._nearest(self.tx_points, ps)
+        j, dj = self._nearest(self.rx_points, pr)
+        forward = (max(di, dj), i, j, False)
+        best = forward
+        if self.reciprocal:                            # the receiver at a transmitter anchor, the path reversed
+            i2, di2 = self._nearest(self.tx_points, pr)
+            j2, dj2 = self._nearest(self.rx_points, ps)
+            if max(di2, dj2) < forward[0]:
+                best = (max(di2, dj2), i2, j2, True)
+        far, i, j, reverse = best
+        if self.max_distance is not None and far > self.max_distance:
+            raise KeyError(f"link {sender!r} -> {receiver!r} is {far:.3f} m from the nearest anchors "
+                           f"(max_distance {self.max_distance} m): no paths were ray-traced there")
+        if np.array_equal(self.tx_points[i], self.rx_points[j]):
+            return None                                # both on the same anchor: no paths were traced there
+        a, tau = self.a[i, j], self.tau[i, j]
+        if not reverse:                                # leaves the sender like the anchor path, arrives like it
+            return a, tau, self.u_tx[i, j], ps - self.tx_points[i], self.u_rx[i, j], pr - self.rx_points[j]
+        return a, tau, self.u_rx[i, j], ps - self.rx_points[j], self.u_tx[i, j], pr - self.tx_points[i]
+
+    def cfr(
+        self,
+        sender: NodeId, # The transmitting node
+        receiver: NodeId, # The receiving node
+    ) -> np.ndarray:
+        "Channel frequency response at the subcarriers (one value without subcarriers), at the nodes' exact positions."
+        paths = self._paths(sender, receiver)
+        if paths is None:
+            return np.full(len(self.subcarriers), complex(math.inf))
+        a, tau, u_dep, d_dep, u_arr, d_arr = paths
+        live = a != 0
+        a, tau, u_dep, u_arr = a[live], tau[live], u_dep[live], u_arr[live]
+        length = tau * _C
+        # the transmitter's move, mirrored like the path (u_dep onto -u_arr): its image's move
+        n = u_dep + u_arr
+        nn = (n * n).sum(-1, keepdims=True)
+        image_move = d_dep - np.divide(2 * n * (n @ d_dep)[:, None], nn, out=np.zeros_like(n), where=nn > 1e-12)
+        moved = np.linalg.norm(length[:, None] * u_arr + image_move - d_arr, axis=-1)
+        dtau = (moved - length) / _C
+        a = a * (length / moved) * np.exp(-2j * np.pi * self.frequency * dtau)
+        return np.exp(-2j * np.pi * np.outer(self.subcarriers, tau + dtau)) @ a
+
+    def path_gain(self, sender: NodeId, receiver: NodeId) -> float:
+        "Linear path gain mean |H|^2 from `sender` to `receiver` at their current positions (inf if co-located)."
+        if self._colocated(sender, receiver):
+            return math.inf
+        return float(np.mean(np.abs(self.cfr(sender, receiver)) ** 2))
+
+    def _colocated(self, sender: NodeId, receiver: NodeId) -> bool:
+        "At the same place, or nearer each other than the anchors (on the same anchor): a perfect link."
+        return np.array_equal(self._position(sender), self._position(receiver)) or self._paths(sender, receiver) is None
+
+    def response(self, transmission, link):
+        "`cfr` of a transmission: H at each subcarrier (math.inf if co-located)."
+        if self._colocated(transmission.sender, transmission.receiver):
+            return np.full(len(self.subcarriers), complex(math.inf))
+        return self.cfr(transmission.sender, transmission.receiver)
+
+    def coefficient(self, transmission, link):
+        "H at the carrier; with subcarriers, √(mean |H|²) (the same power). math.inf if co-located."
+        if self._colocated(transmission.sender, transmission.receiver):
+            return math.inf
+        H = self.cfr(transmission.sender, transmission.receiver)
+        return complex(H[0]) if H.shape[0] == 1 else complex(np.sqrt(np.mean(np.abs(H) ** 2)))

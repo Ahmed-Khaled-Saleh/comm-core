@@ -13,11 +13,11 @@ from typing import Mapping, Sequence
 import numpy as np
 
 from .core import NodeId
-from .propagation import RayTracedFading
+from .propagation import RayTracedFading, RayTracedPathsFading, grid_points
 from .system import FixedPower, SystemLevelChannel, bpsk_bit_error_rate, packet_error_rate
 
 # %% auto #0
-__all__ = ['SionnaRTChannel']
+__all__ = ['SionnaRTChannel', 'trace_paths']
 
 # %% ../nbs/sionna_rt.ipynb #c47c3131
 class SionnaRTChannel(SystemLevelChannel):
@@ -55,3 +55,73 @@ class SionnaRTChannel(SystemLevelChannel):
         "SNR of a transmission from `sender` to `receiver` with `tx_power_w` (dB)."
         snr = tx_power_w * self.path_gain(sender, receiver) / self.noise_power
         return 10 * math.log10(snr) if snr > 0 else -math.inf
+
+# %% ../nbs/sionna_rt.ipynb #8cfac6df
+def _unit(theta, phi):
+    "Unit vectors of zenith / azimuth angles."
+    return np.stack([np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), np.cos(theta)], -1)
+
+
+def trace_paths(
+    scene, # A Sionna RT scene with its frequency set; its tx_array / rx_array, or one isotropic antenna each
+    tx_points, # Transmitter anchors, (N_tx, 3)
+    rx_points, # Receiver anchors, (N_rx, 3)
+    batch: int = 8, # Transmitters, and receivers, per PathSolver call (more overflow its path buffer and drop paths)
+    progress: bool = False, # Print the progress
+    **solver_kwargs, # PathSolver options; default max_depth=3, line of sight, specular reflections, refraction
+) -> dict:
+    "Ray-trace the paths between every transmitter and receiver anchor: the arguments of `RayTracedPathsFading`."
+    import mitsuba as mi
+    from sionna.rt import PathSolver, PlanarArray, Receiver, Transmitter
+    tx_points = np.asarray(tx_points, np.float64).reshape(-1, 3)
+    rx_points = np.asarray(rx_points, np.float64).reshape(-1, 3)
+    if scene.tx_array is None:
+        scene.tx_array = PlanarArray(num_rows=1, num_cols=1, pattern='iso', polarization='V')
+    if scene.rx_array is None:
+        scene.rx_array = PlanarArray(num_rows=1, num_cols=1, pattern='iso', polarization='V')
+    kwargs = dict(max_depth=3, los=True, specular_reflection=True, diffuse_reflection=False, refraction=True,
+                  synthetic_array=True) | solver_kwargs
+    solver = PathSolver()
+    own = [*scene.transmitters.values(), *scene.receivers.values()]     # the scene's radios, put back afterwards
+    for radio in own:
+        scene.remove(radio.name)
+    point = lambda p: mi.Point3f(*map(float, p))
+    blocks, num_paths = [], 0
+    calls = -(-len(tx_points) // batch) * -(-len(rx_points) // batch)
+    try:
+        for i0 in range(0, len(tx_points), batch):
+            for j0 in range(0, len(rx_points), batch):
+                tx, rx = tx_points[i0:i0 + batch], rx_points[j0:j0 + batch]
+                for k, p in enumerate(tx):
+                    scene.add(Transmitter(f'cc-tx-{k}', position=point(p)))
+                for k, p in enumerate(rx):
+                    scene.add(Receiver(f'cc-rx-{k}', position=point(p)))
+                paths = solver(scene, **kwargs)
+                a, tau = paths.cir(normalize_delays=False, out_type='numpy')
+                a = a[:, 0, :, 0, :, 0]                                   # (rx, tx, paths): one antenna each
+                valid = paths.valid.numpy().astype(bool) & (np.abs(a) > 0) & np.isfinite(a) & np.isfinite(tau)
+                valid &= ~(np.abs(rx[:, None, None] - tx[None, :, None]).sum(-1) < 1e-9)   # coincident anchors
+                u_tx = _unit(paths.theta_t.numpy(), paths.phi_t.numpy())
+                u_rx = _unit(paths.theta_r.numpy(), paths.phi_r.numpy())
+                sw = lambda x: np.swapaxes(x, 0, 1)                       # (tx, rx, ...)
+                blocks.append((i0, j0, sw(np.where(valid, a, 0)), sw(np.where(valid, tau, 0)),
+                               sw(np.where(valid[..., None], u_tx, 0)), sw(np.where(valid[..., None], u_rx, 0))))
+                num_paths = max(num_paths, a.shape[-1])
+                for k in range(len(tx)):
+                    scene.remove(f'cc-tx-{k}')
+                for k in range(len(rx)):
+                    scene.remove(f'cc-rx-{k}')
+                if progress:
+                    print(f'{len(blocks)} / {calls}', end='\r')
+    finally:
+        for name in [n for n in (*scene.transmitters, *scene.receivers) if n.startswith('cc-')]:
+            scene.remove(name)
+        for radio in own:
+            scene.add(radio)
+    shape = (len(tx_points), len(rx_points), num_paths)
+    out = dict(a=np.zeros(shape, np.complex128), tau=np.zeros(shape), u_tx=np.zeros(shape + (3,)), u_rx=np.zeros(shape + (3,)))
+    for i0, j0, a, tau, u_tx, u_rx in blocks:
+        at = (slice(i0, i0 + a.shape[0]), slice(j0, j0 + a.shape[1]), slice(0, a.shape[-1]))
+        out['a'][at], out['tau'][at], out['u_tx'][at], out['u_rx'][at] = a, tau, u_tx, u_rx
+    frequency = float(np.asarray(scene.frequency).reshape(-1)[0])
+    return dict(tx_points=tx_points, rx_points=rx_points, **out, frequency=frequency)

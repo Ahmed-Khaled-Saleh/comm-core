@@ -59,6 +59,12 @@ class AnalyticalBackend(CommunicationBackend):
             link,
         )
 
+    def transmit_all(self, transmissions):
+        "The step's transmissions; in one call when the channel can (`transmit_batch`)."
+        if hasattr(self.channel, 'transmit_batch'):
+            return self.channel.transmit_batch(transmissions)
+        return [self.channel.transmit(transmission, link) for transmission, link in transmissions]
+
     def reset(self, seed: int | None = None) -> None:
         self.channel.reset(seed)
 

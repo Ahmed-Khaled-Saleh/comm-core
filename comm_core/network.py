@@ -7,6 +7,8 @@ Docs: https://Ahmed-Khaled-Saleh.github.io/comm-core/network.html.md"""
 # %% ../nbs/network.ipynb #9741fe3d
 from __future__ import annotations
 
+import heapq
+import itertools
 from collections import defaultdict
 from dataclasses import replace
 from typing import Dict, List
@@ -22,14 +24,16 @@ __all__ = ['Network']
 
 # %% ../nbs/network.ipynb #a2e742d8
 class Network:
+    "What nodes send and receive through: the topology, protocol, backend and metrics together."
 
     def __init__(
         self,
-        nodes: List[Node],
-        topology: Topology,
-        protocol: Protocol,
-        backend: CommunicationBackend,
-        metrics: MetricsCollector | None = None,
+        nodes: List[Node], # The nodes
+        topology: Topology, # Who can communicate with whom
+        protocol: Protocol, # When messages are transmitted
+        backend: CommunicationBackend, # How a step's transmissions are simulated
+        metrics: MetricsCollector | None = None, # What communication costs; None: a new collector
+        delayed_delivery: bool = False, # Deliver a message at its transmission's start + latency (False: in the step it is sent)
     ):
         self.nodes = {
             node.id: node
@@ -46,9 +50,15 @@ class Network:
             else MetricsCollector()
         )
 
+        self.delayed_delivery = delayed_delivery
+
         self._inbox: Dict[str, List[Message]] = (
             defaultdict(list)
         )
+
+        self._timed: List[tuple] = []          # (time, order, message): messages sent for later
+        self._in_flight: List[tuple] = []      # (arrival, order, receiver, message): delivered later
+        self._order = itertools.count()
 
         self.time = 0.0
 
@@ -56,14 +66,18 @@ class Network:
         "Start over (e.g. a new episode): clock, queues, inboxes and metrics; `seed` reseeds the protocol and the backend."
         self.time = 0.0
         self._inbox.clear()
+        self._timed.clear()
+        self._in_flight.clear()
         self.protocol.reset(seed)
         self.backend.reset(seed)
         self.metrics.reset()
 
     def send(
         self,
-        message: Message,
+        message: Message, # The message
+        at: float | None = None, # When it is sent (None: with the next step); not before the network's time
     ) -> None:
+        "Hand a message to the protocol, now or at time `at`."
 
         if message.sender not in self.nodes:
             raise ValueError(
@@ -85,25 +99,53 @@ class Network:
                 f"{message.receiver}"
             )
 
-        self.protocol.submit(
-            message,
-            self.time,
-        )
+        if at is None:
+            self.protocol.submit(
+                message,
+                self.time,
+            )
+        elif at < self.time:
+            raise ValueError(f"cannot send at {at}: the network is already at {self.time}")
+        else:
+            heapq.heappush(self._timed, (at, next(self._order), message))
 
     def step(
         self,
-        dt: float = 1.0,
+        dt: float = 1.0, # How far the clock moves
     ) -> List[TransmissionResult]:
+        "Move the clock by `dt` and transmit (see `step_to`)."
+        return self.step_to(self.time + dt)
 
-        self.time += dt
+    def step_to(
+        self,
+        time: float, # The new time (not before the network's time)
+    ) -> List[TransmissionResult]:
+        "Move the clock to `time`: messages sent for earlier times go out at their times, then the step's transmissions."
+        if time < self.time:
+            raise ValueError(f"cannot step back from {self.time} to {time}")
+        results = []
+        while self._timed and self._timed[0][0] < time:
+            at = self._timed[0][0]
+            while self._timed and self._timed[0][0] == at:
+                self.protocol.submit(heapq.heappop(self._timed)[2], at)
+            self.time = at
+            results += self._transmit(at)
+        while self._timed and self._timed[0][0] == time:
+            self.protocol.submit(heapq.heappop(self._timed)[2], time)
+        self.time = time
+        results += self._transmit(time)
+        return results
 
-        self.backend.step(self.time)
+    def _transmit(self, time: float) -> List[TransmissionResult]:
+        "One round: the protocol's transmissions at `time`, all at once."
+
+        self.backend.step(time)
 
         transmissions = self.protocol.schedule(
-            self.time
+            time
         )
 
-        # the step's transmissions happen at the same time: the backend gets them all at once
+        # the round's transmissions happen at the same time: the backend gets them all at once
         links = [
             self.topology.get_link(
                 transmission.sender,
@@ -125,12 +167,16 @@ class Network:
 
             if result.success:
 
+                arrival = transmission.start_time + result.latency if self.delayed_delivery else time
+
                 # what the receiver gets is what the channel delivered (it may differ from what was sent)
-                self._inbox[
-                    transmission.receiver
-                ].append(
-                    replace(transmission.message, payload=result.payload)
-                )
+                message = replace(transmission.message, payload=result.payload,
+                                  metadata={**transmission.message.metadata, 'received_at': arrival})
+
+                if self.delayed_delivery:
+                    heapq.heappush(self._in_flight, (arrival, next(self._order), transmission.receiver, message))
+                else:
+                    self._inbox[transmission.receiver].append(message)
 
         # acknowledgements: the protocol learns what got through (e.g. to retransmit)
         self.protocol.feedback(results)
@@ -139,8 +185,13 @@ class Network:
 
     def receive(
         self,
-        node_id: str,
+        node_id: str, # The receiving node
     ) -> List[Message]:
+        "The messages that have reached `node_id` by now, in the order they arrived."
+
+        while self._in_flight and self._in_flight[0][0] <= self.time:
+            _, _, receiver, message = heapq.heappop(self._in_flight)
+            self._inbox[receiver].append(message)
 
         messages = self._inbox[node_id]
 
@@ -148,4 +199,7 @@ class Network:
 
         return messages
 
-    
+    @property
+    def in_flight(self) -> int:
+        "Messages transmitted that have not arrived yet (with `delayed_delivery`)."
+        return len(self._in_flight)

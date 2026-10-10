@@ -17,6 +17,10 @@ classifiers = [
 ]
 dependencies = ["numpy"]
 
+[project.optional-dependencies]
+dev = ["matplotlib"]   # the examples' plots
+sionna = ["sionna>=2.2"]   # comm_core.sionna_sys (Sionna SYS, PyTorch); trace_paths needs Sionna RT (sionna-rt)
+
 [project.urls]
 Repository = "https://github.com/Ahmed-Khaled-Saleh/comm-core"
 Documentation = "https://Ahmed-Khaled-Saleh.github.io/comm-core/"
@@ -33,3 +37,4 @@ include = ["comm_core"]
 [tool.nbdev]
 custom_sidebar = true
 strip_libs = "comm_core"
+tst_flags = "notest sionna slow"

@@ -2,7 +2,15 @@ website:
   sidebar:
     contents:
       - index.ipynb
+      - principles.ipynb
       - design.ipynb
+      - section: Examples
+        contents:
+          - examples/01_sharing.ipynb
+          - examples/02_medium_access.ipynb
+          - examples/03_continuous_positions.ipynb
+          - examples/04_fidelity.ipynb
+          - examples/05_robot_control.ipynb
       - section: Core
         contents:
           - 00_core.ipynb
@@ -19,3 +27,5 @@ website:
           - system.ipynb
           - link.ipynb
           - sionna_rt.ipynb
+          - sionna_sys.ipynb
+          - sionna_phy.ipynb

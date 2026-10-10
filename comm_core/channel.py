@@ -10,6 +10,7 @@ Docs: https://Ahmed-Khaled-Saleh.github.io/comm-core/channel.html.md"""
 from __future__ import annotations
 
 import random
+from dataclasses import replace
 from abc import ABC, abstractmethod
 
 from .core import Transmission, TransmissionResult
@@ -19,7 +20,7 @@ from .topology import Link
     
 
 # %% auto #0
-__all__ = ['Channel', 'IdentityChannel', 'AWGNChannel']
+__all__ = ['Channel', 'IdentityChannel', 'AWGNChannel', 'FragmentingChannel']
 
 # %% ../nbs/channel.ipynb #3172a976
 class Channel(ABC):
@@ -115,4 +116,63 @@ class AWGNChannel(Channel):
             size_bits=message.size_bits or 0,
             snr_db=self.snr_db,
             error_rate=self.packet_error_rate,
+        )
+
+# %% ../nbs/channel.ipynb #035d1016
+class FragmentingChannel(Channel):
+    "A MAC layer over another channel: packets of at most `mtu_bits`, each retried; the message arrives if every packet does."
+
+    def __init__(
+        self,
+        channel: Channel, # The channel of each packet (deciding from its size, e.g. `SystemLevelChannel`)
+        mtu_bits: int = 12_000, # Largest packet (1500 bytes)
+        retry_limit: int = 7, # Retransmissions of a packet before the message is lost
+        overhead_s: float = 0.0, # Time added to every attempt (preamble, backoff, acknowledgement)
+        rate_bps: float | None = None, # Bit rate of the airtime; None: the inner channel's latency
+    ):
+        self.channel, self.mtu_bits, self.retry_limit = channel, mtu_bits, retry_limit
+        self.overhead_s, self.rate_bps = overhead_s, rate_bps
+
+    def reset(self, seed: int | None = None) -> None:
+        self.channel.reset(seed)
+
+    def update(self, time: float) -> None:
+        self.channel.update(time)
+
+    def set_positions(self, positions) -> None:
+        "Where the nodes are, for an inner channel that depends on it."
+        if hasattr(self.channel, 'set_positions'):
+            self.channel.set_positions(positions)
+
+    def transmit(
+        self,
+        transmission: Transmission,
+        link: Link,
+    ) -> TransmissionResult:
+
+        message = transmission.message
+        size = message.size_bits or 0
+        packets = [self.mtu_bits] * (size // self.mtu_bits) + ([size % self.mtu_bits] if size % self.mtu_bits or not size else [])
+        time, attempts, bits_on_air, energy, ok, last = transmission.start_time, 0, 0, 0.0, True, None
+        for bits in packets:
+            for _ in range(self.retry_limit + 1):
+                packet = replace(transmission, message=replace(message, size_bits=bits), start_time=time, end_time=None)
+                last = self.channel.transmit(packet, link)
+                attempts, bits_on_air, energy = attempts + 1, bits_on_air + bits, energy + last.energy
+                time += (bits / self.rate_bps if self.rate_bps else last.latency) + self.overhead_s
+                if last.success:
+                    break
+            else:
+                ok = False
+                break
+        return TransmissionResult(
+            success=ok,
+            transmission=transmission,
+            payload=message.payload if ok else None,
+            latency=time - transmission.start_time,
+            size_bits=size,
+            energy=energy,
+            snr_db=last.snr_db,
+            error_rate=last.error_rate,
+            metadata={**last.metadata, 'packets': len(packets), 'attempts': attempts, 'bits_on_air': bits_on_air},
         )
