@@ -7,3 +7,8 @@ website:
   description: "Useful abstractions for Multi-agent learning with communication. "
   repo-branch: main
   repo-url: "https://github.com/Ahmed-Khaled-Saleh/comm-core"
+
+format-links:
+  - html
+  - format: commonmark
+    text: Markdown

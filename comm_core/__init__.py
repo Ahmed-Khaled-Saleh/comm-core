@@ -1,5 +1,5 @@
 __version__ = "0.0.1"
-"""The public API.
+"""Everything importable from `comm_core`.
 
 Docs: https://Ahmed-Khaled-Saleh.github.io/comm-core/init.html.md"""
 
@@ -35,6 +35,9 @@ from comm_core.channel import (
 from comm_core.protocol import (
     Protocol,
     IdealProtocol,
+    SlottedProtocol,
+    TDMAProtocol,
+    SlottedALOHA,
 )
 
 from comm_core.backend import (
@@ -44,10 +47,40 @@ from comm_core.backend import (
 
 from .network import Network
 
-from comm_core.sionna_rt import (
-    SionnaRTChannel,
-    packet_error_rate,
+from comm_core.propagation import (
+    Fading,
+    NoFading,
+    RayleighFading,
+    RayTracedFading,
 )
+
+from comm_core.system import (
+    bpsk_bit_error_rate,
+    packet_error_rate,
+    PowerControl,
+    FixedPower,
+    ChannelInversion,
+    MessagePower,
+    LinkBudget,
+    RadioChannel,
+    SystemLevelChannel,
+    InterferenceBackend,
+)
+
+from comm_core.link import (
+    to_bits,
+    from_bits,
+    Codec,
+    IndexCodec,
+    UniformQuantizer,
+    Modulation,
+    BPSK,
+    awgn,
+    propagate,
+    LinkLevelChannel,
+)
+
+from .sionna_rt import SionnaRTChannel
 
 from comm_core.metrics import (
     CommunicationMetrics,
@@ -74,14 +107,43 @@ __all__ = [
 
     "Protocol",
     "IdealProtocol",
+    "SlottedProtocol",
+    "TDMAProtocol",
+    "SlottedALOHA",
 
     "CommunicationBackend",
     "AnalyticalBackend",
 
     "Network",
 
-    "SionnaRTChannel",
+    "Fading",
+    "NoFading",
+    "RayleighFading",
+    "RayTracedFading",
+
+    "bpsk_bit_error_rate",
     "packet_error_rate",
+    "PowerControl",
+    "FixedPower",
+    "ChannelInversion",
+    "MessagePower",
+    "LinkBudget",
+    "RadioChannel",
+    "SystemLevelChannel",
+    "InterferenceBackend",
+
+    "to_bits",
+    "from_bits",
+    "Codec",
+    "IndexCodec",
+    "UniformQuantizer",
+    "Modulation",
+    "BPSK",
+    "awgn",
+    "propagate",
+    "LinkLevelChannel",
+
+    "SionnaRTChannel",
 
     "CommunicationMetrics",
     "MetricsCollector",

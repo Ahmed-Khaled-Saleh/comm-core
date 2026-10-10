@@ -1,0 +1,21 @@
+website:
+  sidebar:
+    contents:
+      - index.ipynb
+      - design.ipynb
+      - section: Core
+        contents:
+          - 00_core.ipynb
+          - topology.ipynb
+          - channel.ipynb
+          - protocol.ipynb
+          - backend.ipynb
+          - network.ipynb
+          - metrics.ipynb
+          - init.ipynb
+      - section: Radio
+        contents:
+          - propagation.ipynb
+          - system.ipynb
+          - link.ipynb
+          - sionna_rt.ipynb

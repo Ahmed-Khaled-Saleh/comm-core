@@ -31,3 +31,5 @@ version = {attr = "comm_core.__version__"}
 include = ["comm_core"]
 
 [tool.nbdev]
+custom_sidebar = true
+strip_libs = "comm_core"

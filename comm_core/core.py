@@ -1,4 +1,4 @@
-"""Fill in a module description here
+"""The data that flows through a network: nodes, messages, transmissions and their results.
 
 Docs: https://Ahmed-Khaled-Saleh.github.io/comm-core/core.html.md"""
 
