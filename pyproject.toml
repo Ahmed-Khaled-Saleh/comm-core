@@ -18,7 +18,7 @@ classifiers = [
 dependencies = ["numpy"]
 
 [project.optional-dependencies]
-dev = ["matplotlib"]   # the examples' plots
+dev = ["matplotlib", "scikit-learn"]   # the examples' plots, and their learned predictors
 sionna = ["sionna>=2.2"]   # comm_core.sionna_sys (Sionna SYS, PyTorch); trace_paths needs Sionna RT (sionna-rt)
 
 [project.urls]
@@ -36,5 +36,6 @@ include = ["comm_core"]
 
 [tool.nbdev]
 custom_sidebar = true
+renderer = "comm_core._showdoc.ShowDocRenderer"
 strip_libs = "comm_core"
 tst_flags = "notest sionna slow"

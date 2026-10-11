@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import math
 from abc import ABC, abstractmethod
+from collections import deque
 from dataclasses import dataclass
-from typing import List, Sequence, Tuple
+from typing import Any, Callable, List, Mapping, Sequence, Tuple
 
 import numpy as np
 
@@ -22,8 +23,9 @@ from .topology import Link
 
 # %% auto #0
 __all__ = ['bpsk_bit_error_rate', 'packet_error_rate', 'ErrorModel', 'BPSKErrorModel', 'ThresholdErrorModel', 'eesm',
-           'EESMErrorModel', 'PowerControl', 'FixedPower', 'ChannelInversion', 'MessagePower', 'LinkBudget',
-           'RadioChannel', 'SystemLevelChannel', 'InterferenceBackend']
+           'EESMErrorModel', 'PowerControl', 'FixedPower', 'ChannelInversion', 'MessagePower', 'gain_windows',
+           'fit_gain_predictor', 'PredictedChannelInversion', 'MapChannelInversion', 'LinkBudget', 'RadioChannel',
+           'SystemLevelChannel', 'InterferenceBackend']
 
 # %% ../nbs/system.ipynb #bcdaea40
 def _is_torch(x) -> bool:
@@ -156,6 +158,14 @@ class PowerControl(ABC):
     ):
         "(power, transmit): the transmit power, and whether to transmit (False: outage), shaped like `gain`."
 
+    def reset(self, seed: int | None = None) -> None:
+        "Start over (e.g. a new episode): forget any state, e.g. past channel gains."
+        pass
+
+    def update(self, time: float) -> None:
+        "A new round of transmissions begins at `time` (e.g. to note where the nodes are)."
+        pass
+
 
 class FixedPower(PowerControl):
     "The same power always."
@@ -186,7 +196,7 @@ class ChannelInversion(PowerControl):
             gain = np.float64(gain)
         with np.errstate(divide='ignore'):                 # |h|^2 = 0: infinite power, an outage
             power = 10 ** (self.target_snr_db / 10) * noise_power / gain
-        return power, power <= self.max_power
+        return power, (power <= self.max_power) & (abs(power) < math.inf)   # infinite power: never sent
 
 
 class MessagePower(PowerControl):
@@ -204,6 +214,147 @@ class MessagePower(PowerControl):
             raise ValueError("MessagePower reads the power from the message")
         p = min(float(message.metadata.get(self.key, 0.0)), self.max_power)
         return p, p > 0
+
+# %% ../nbs/system.ipynb #2f63227d
+def gain_windows(
+    gains: Sequence[float], # One link's channel gains |h|^2, in time order
+    history: int, # Past gains per window (L)
+) -> Tuple[np.ndarray, np.ndarray]:
+    "(X, y): each gain y_t with the `history` gains before it, most recent first: X_t = [g_{t-1}, ..., g_{t-L}]."
+    g = np.asarray(gains, float)
+    if len(g) <= history:
+        return np.zeros((0, history)), np.zeros(0)
+    X = np.stack([g[t - history:t][::-1] for t in range(history, len(g))])
+    return X, g[history:]
+
+
+def fit_gain_predictor(
+    sequences: Sequence[Sequence[float]], # Gain sequences |h|^2 (e.g. one per link and episode)
+    history: int, # Past gains the predictor sees (L)
+    ridge: float = 1e-6, # L2 regularization of the weights
+    domain: str = 'linear', # Fit |h|^2 itself ('linear'), or its value in dB ('db', for power inversion; see below)
+) -> Callable:
+    "A linear predictor of the next channel gain from the last `history` ones (least squares with a bias)."
+    if domain not in ('linear', 'db'):
+        raise ValueError(f"domain: 'linear' or 'db', not {domain!r}")
+    pairs = [gain_windows(s, history) for s in sequences]
+    X = np.concatenate([x for x, _ in pairs])
+    y = np.concatenate([t for _, t in pairs])
+    if not len(y):
+        raise ValueError(f"no sequence is longer than the history ({history})")
+    if domain == 'db':
+        to = lambda g: 10 * np.log10(np.maximum(np.asarray(g, float), 1e-30))
+        back = lambda v: 10 ** (v / 10)
+    else:
+        scale = float(np.mean(y)) or 1.0                   # gains are tiny (e.g. 1e-9): fit in units of their mean
+        to = lambda g: np.asarray(g, float) / scale
+        back = lambda v: v * scale
+    A = np.c_[to(X), np.ones(len(X))]
+    w = np.linalg.solve(A.T @ A + ridge * len(A) * np.eye(A.shape[1]), A.T @ to(y))
+
+    def predictor(past):
+        return float(back(np.r_[to(past), 1.0] @ w))
+
+    predictor.weights, predictor.domain = w, domain
+    return predictor
+
+
+class PredictedChannelInversion(PowerControl):
+    "Channel inversion with a predicted gain: |h|^2 predicted from the link's past gains, as without channel knowledge."
+
+    def __init__(
+        self,
+        predictor: Callable, # Past gains (most recent first, `history` of them) -> the current gain, e.g. `fit_gain_predictor`
+        history: int, # Past gains the predictor needs (L)
+        target_snr_db: float = 10.0, # Target SNR at the receiver (Γ)
+        max_power: float = math.inf, # Power budget (ρ_max); more: not sent
+        fallback_power: float | None = None, # Power while a link has fewer than `history` past gains; None: the link's tx_power_w
+        margin_db: float = 0.0, # Extra SNR aimed for, against prediction errors
+    ):
+        self.predictor, self.history, self.target_snr_db, self.margin_db = predictor, history, target_snr_db, margin_db
+        self.max_power, self.fallback_power = max_power, fallback_power
+        self._past = {}
+        self.predicted = None                              # the last prediction (None: fallback power)
+
+    def reset(self, seed=None):
+        self._past.clear()
+        self.predicted = None
+
+    def allocate(self, gain, noise_power, link=None, message=None):
+        if link is None:
+            raise ValueError("PredictedChannelInversion keeps a history per link: give the link")
+        past = self._past.setdefault((link.sender, link.receiver), deque(maxlen=self.history))
+        if len(past) < self.history:
+            self.predicted = None
+            power = self.fallback_power if self.fallback_power is not None else link.tx_power_w
+        else:
+            self.predicted = max(0.0, float(self.predictor(np.array(past)[::-1])))
+            snr = 10 ** ((self.target_snr_db + self.margin_db) / 10)
+            power = snr * noise_power / self.predicted if self.predicted > 0 else math.inf
+        past.append(float(gain))                           # known after the transmission
+        return power, math.isfinite(power) and power <= self.max_power
+
+# %% ../nbs/system.ipynb #f90f347d
+class MapChannelInversion(PowerControl):
+    "Channel inversion with the gain looked up in a map: the weakest gain over the cells the receiver can have reached since its last report."
+
+    def __init__(
+        self,
+        map, # The channel map: `gain_between(tx_position, rx_position)` and `node_positions` (e.g. `RayTracedFading`)
+        reachable: Callable | None = None, # reachable(position, state) -> positions the receiver can be at now; None: its reported one
+        states: Callable | None = None, # states() -> {node: state} (e.g. headings), read at every round
+        target_snr_db: float = 10.0, # Target SNR at the receiver (Γ)
+        max_power: float = math.inf, # Power budget (ρ_max); more: not sent
+        margin_db: float = 0.0, # Extra SNR aimed for, against the map's errors
+        fallback: PowerControl | None = None, # Before a receiver's first report; None: the link's tx_power_w
+    ):
+        self.map, self.reachable, self.states = map, reachable, states
+        self.target_snr_db, self.max_power, self.margin_db, self.fallback = target_snr_db, max_power, margin_db, fallback
+        self.reset()
+
+    def reset(self, seed=None):
+        self._now, self._reported, self._now_states, self._reported_states = {}, {}, {}, {}
+        self.predicted = None
+        if self.fallback is not None:
+            self.fallback.reset(seed)
+
+    def update(self, time):
+        "A new round: what the nodes reported last round becomes known; note where they are now."
+        self._reported, self._reported_states = self._now, self._now_states
+        self._now = dict(self.map.node_positions)
+        self._now_states = dict(self.states()) if self.states is not None else {}
+        if self.fallback is not None:
+            self.fallback.update(time)
+
+    def allocate(self, gain, noise_power, link=None, message=None):
+        if link is None:
+            raise ValueError("MapChannelInversion needs the link")
+        tx = self.map.node_positions.get(link.sender)
+        rx = self._reported.get(link.receiver)
+        if tx is None or rx is None:                       # no report yet: the fallback
+            self.predicted = None
+            if self.fallback is not None:
+                return self.fallback.allocate(gain, noise_power, link=link, message=message)
+            return link.tx_power_w, link.tx_power_w <= self.max_power
+        if self.fallback is not None:                       # keeps the fallback's own state (e.g. gain history) current
+            self.fallback.allocate(gain, noise_power, link=link, message=message)
+        cells = [rx] if self.reachable is None else list(self.reachable(rx, self._reported_states.get(link.receiver)))
+        here = [c for c in cells if tuple(c) == tuple(tx)]
+        cells = [c for c in cells if tuple(c) != tuple(tx)] or here    # the receiver is elsewhere, if it can be
+        gains = []
+        for c in cells:
+            try:
+                gains.append(self.map.gain_between(tx, c))
+            except KeyError:                                # a cell outside the map: not a place to be
+                pass
+        if not gains:
+            gains = [self.map.gain_between(tx, rx)]
+        self.predicted = min(gains)
+        if math.isinf(self.predicted):                      # the receiver may be right here: no prediction needed
+            return 0.0, True
+        snr = 10 ** ((self.target_snr_db + self.margin_db) / 10)
+        power = snr * noise_power / self.predicted if self.predicted > 0 else math.inf
+        return power, math.isfinite(power) and power <= self.max_power
 
 # %% ../nbs/system.ipynb #3c4f4175
 def _child_seed(seed: int | None, i: int) -> int | None:
@@ -243,10 +394,15 @@ class RadioChannel(Channel):
         self.reset(seed)
 
     def reset(self, seed: int | None = None) -> None:
-        "`seed` reseeds the channel and the fading."
+        "Start over: `seed` reseeds the channel and the fading; the power control forgets its state."
         if seed is not None:
             self.rng = np.random.default_rng(_child_seed(seed, 0))
         self.fading.reset(_child_seed(seed, 1))
+        self.power_control.reset(_child_seed(seed, 2))
+
+    def update(self, time: float) -> None:
+        "A new round: the power control learns it (see `PowerControl.update`)."
+        self.power_control.update(time)
 
     def set_positions(self, positions) -> None:
         "Where the nodes are, for a fading that depends on it (e.g. `RayTracedFading`)."

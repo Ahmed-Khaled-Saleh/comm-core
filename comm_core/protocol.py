@@ -22,6 +22,7 @@ __all__ = ['Protocol', 'IdealProtocol', 'SlottedProtocol', 'TDMAProtocol', 'Slot
 
 # %% ../nbs/protocol.ipynb #009bee75
 class Protocol(ABC):
+    "Decides which of the submitted messages are transmitted, and when (medium access)."
 
     @abstractmethod
     def submit(
@@ -51,6 +52,7 @@ class Protocol(ABC):
 
 # %% ../nbs/protocol.ipynb #a8a44d63
 class IdealProtocol(Protocol):
+    "Transmits every submitted message at the next step: no contention, no delay."
 
     def __init__(self):
         self._queue: Deque[Message] = deque()

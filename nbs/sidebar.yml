@@ -11,6 +11,9 @@ website:
           - examples/03_continuous_positions.ipynb
           - examples/04_fidelity.ipynb
           - examples/05_robot_control.ipynb
+          - examples/06_predicted_power.ipynb
+          - examples/07_power_across_layouts.ipynb
+          - examples/08_map_mismatch.ipynb
       - section: Core
         contents:
           - 00_core.ipynb

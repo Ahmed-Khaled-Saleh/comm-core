@@ -24,6 +24,7 @@ __all__ = ['Channel', 'IdentityChannel', 'AWGNChannel', 'FragmentingChannel']
 
 # %% ../nbs/channel.ipynb #3172a976
 class Channel(ABC):
+    "A model of what a link does to a transmission: whether it arrives, and what the receiver gets."
 
     @abstractmethod
     def transmit(

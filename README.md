@@ -67,6 +67,12 @@ To decide when messages go out, swap the protocol, e.g. [`TDMAProtocol`](https:
   - [Levels of fidelity](https://Ahmed-Khaled-Saleh.github.io/comm-core/examples/fidelity.html): from an analytic formula to every bit of 5G NR.
   - [Robot control over Wi-Fi](https://Ahmed-Khaled-Saleh.github.io/comm-core/examples/robot_control.html): a custom channel model, built from the
     pieces.
+  - [Power control without channel knowledge](https://Ahmed-Khaled-Saleh.github.io/comm-core/examples/predicted_power.html):
+    codebook tokens over BPSK, the transmitter predicting the channel (the C3-WM communication model).
+  - [Power control on new layouts](https://Ahmed-Khaled-Saleh.github.io/comm-core/examples/power_across_layouts.html): a target
+    reliability in layouts the predictor has never seen, from the link’s history, the agents’ moves and the layout.
+  - [When the radio map is wrong](https://Ahmed-Khaled-Saleh.github.io/comm-core/examples/map_mismatch.html): looking the gain up in an
+    imperfect ray-traced map, against learning from it.
 - **Core:** [core](https://Ahmed-Khaled-Saleh.github.io/comm-core/core.html), [topology](https://Ahmed-Khaled-Saleh.github.io/comm-core/topology.html), [channel](https://Ahmed-Khaled-Saleh.github.io/comm-core/channel.html),
   [protocol](https://Ahmed-Khaled-Saleh.github.io/comm-core/protocol.html), [backend](https://Ahmed-Khaled-Saleh.github.io/comm-core/backend.html), [network](https://Ahmed-Khaled-Saleh.github.io/comm-core/network.html),
   [metrics](https://Ahmed-Khaled-Saleh.github.io/comm-core/metrics.html).

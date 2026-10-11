@@ -49,6 +49,7 @@ class CommunicationMetrics:
 
 # %% ../nbs/metrics.ipynb #40d7df61
 class MetricsCollector:
+    "Accumulates `CommunicationMetrics` over the transmissions' results."
 
     def __init__(self):
         self.metrics = CommunicationMetrics()

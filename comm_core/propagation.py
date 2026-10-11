@@ -205,6 +205,17 @@ class RayTracedFading(Fading):
         tx, rx = self._index(sender), self._index(receiver)
         return math.inf if tx == rx else float(self.gain[rx, tx])
 
+    def gain_between(
+        self,
+        tx_position: Sequence, # A transmitter's position (one of the table's)
+        rx_position: Sequence, # A receiver's position (one of the table's)
+    ) -> float:
+        "Linear path gain |H|^2 between two positions of the table, wherever the nodes are (inf if the same)."
+        tx, rx = _key(tx_position), _key(rx_position)
+        if tx not in self.index or rx not in self.index:
+            raise KeyError(f"no channel was ray-traced between {tx} and {rx}")
+        return math.inf if tx == rx else float(self.gain[self.index[rx], self.index[tx]])
+
     def coefficient(self, transmission, link):
         "H[rx, tx] at the nodes' current positions (math.inf if co-located)."
         tx, rx = self._index(transmission.sender), self._index(transmission.receiver)

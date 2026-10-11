@@ -31,6 +31,7 @@ __all__ = ['Link', 'Topology', 'GraphTopology', 'FullMeshTopology', 'StarTopolog
 
 # %% ../nbs/topology.ipynb #45ee2714
 class Topology(ABC):
+    "Which nodes can send to which: the links of the network."
 
     @abstractmethod
     def neighbors(self, node: NodeId) -> List[NodeId]:
@@ -56,6 +57,7 @@ class Topology(ABC):
 
 # %% ../nbs/topology.ipynb #9c820fac
 class GraphTopology(Topology):
+    "A topology given by its directed links."
 
     def __init__(
         self,
@@ -97,6 +99,7 @@ class GraphTopology(Topology):
 
 # %% ../nbs/topology.ipynb #256c508a
 class FullMeshTopology(GraphTopology):
+    "Every node linked to every other node, in both directions."
 
     def __init__(
         self,
@@ -117,6 +120,7 @@ class FullMeshTopology(GraphTopology):
 
 # %% ../nbs/topology.ipynb #3d2b2f5e
 class StarTopology(GraphTopology):
+    "`center` linked to every other node, in both directions; no other links."
 
     def __init__(
         self,

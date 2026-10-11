@@ -16,6 +16,7 @@ from .channel import Channel
 
 
 class CommunicationBackend(ABC):
+    "Carries out the transmissions of each step: the interface the `Network` simulates them through."
 
     @abstractmethod
     def transmit(
@@ -41,6 +42,7 @@ class CommunicationBackend(ABC):
 
 
 class AnalyticalBackend(CommunicationBackend):
+    "A backend that hands each transmission to a `Channel` model."
 
     def __init__(
         self,
