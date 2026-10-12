@@ -15,16 +15,19 @@ from typing import Mapping, Sequence
 
 import numpy as np
 
+from .block import Block
 from .core import NodeId, Transmission
 from .topology import Link
 
 # %% auto #0
-__all__ = ['Fading', 'NoFading', 'RayleighFading', 'GilbertElliottFading', 'RayTracedFading', 'grid_points',
-           'RayTracedPathsFading']
+__all__ = ['Fading', 'effective_coefficient', 'NoFading', 'RayleighFading', 'GilbertElliottFading', 'RayTracedFading',
+           'grid_points', 'RayTracedPathsFading']
 
 # %% ../nbs/propagation.ipynb #52ddf3cc
-class Fading(ABC):
-    "The channel coefficient h of a transmission."
+class Fading(Block, ABC):
+    "The channel coefficient h of a transmission. As a block: the h of a step's transmissions, at each subcarrier."
+
+    outputs = ('h',)
 
     @abstractmethod
     def coefficient(
@@ -42,10 +45,30 @@ class Fading(ABC):
         "h at each subcarrier (a frequency-selective fading); by default flat: one value, `coefficient`."
         return np.array([complex(self.coefficient(transmission, link))])
 
-    def reset(self, seed: int | None = None) -> None:
-        "Start over; `seed` reseeds the fading's random generator, if it has one."
-        pass
+    def call(
+        self,
+        transmission: Sequence[Transmission], # The transmissions
+        link: Sequence[Link], # Their links
+    ) -> np.ndarray:
+        "h of each transmission at each subcarrier, (n, K) complex: one `response` per row (a row of inf: the nodes at the same place)."
+        rows = [np.asarray(self.response(t, l), np.complex128).reshape(-1) for t, l in zip(transmission, link)]
+        if not rows:
+            return np.zeros((0, 1), np.complex128)
+        K = max(len(r) for r in rows)
+        rows = [np.full(K, r[0]) if len(r) == 1 and np.isinf(r).any() else r for r in rows]
+        if any(len(r) != K for r in rows):
+            raise ValueError(f"responses with different numbers of subcarriers: {sorted({len(r) for r in rows})}")
+        return np.stack(rows)
 
+
+def effective_coefficient(
+    h, # h of a transmission at its subcarriers (one value: flat)
+) -> complex:
+    "One coefficient for a transmission: h if flat, else √(mean |h|²) (the same power); math.inf if the nodes are at the same place."
+    h = np.asarray(h, np.complex128).reshape(-1)
+    if np.isinf(h).any():
+        return complex(math.inf)
+    return complex(h[0]) if h.size == 1 else complex(np.sqrt(np.mean(np.abs(h) ** 2)))
 
 class NoFading(Fading):
     "The same coefficient for every transmission."

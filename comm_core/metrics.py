@@ -49,10 +49,14 @@ class CommunicationMetrics:
 
 # %% ../nbs/metrics.ipynb #40d7df61
 class MetricsCollector:
-    "Accumulates `CommunicationMetrics` over the transmissions' results."
+    """Accumulates `CommunicationMetrics` over the transmissions' results.
+
+    The copies of a broadcast (`metadata['broadcast']`) sent in the same round are one emission: they count as
+    transmissions, deliveries and losses one by one, but their bits and energy once (the most of the copies')."""
 
     def __init__(self):
         self.metrics = CommunicationMetrics()
+        self._emitted = {}                             # (broadcast, round) -> (bits, energy) charged so far
 
     def record(
         self,
@@ -68,8 +72,7 @@ class MetricsCollector:
         m.transmissions += 1
 
         bits = result.size_bits
-
-        m.bits_sent += bits
+        energy = result.energy
 
         if result.success:
             m.successful += 1
@@ -79,11 +82,25 @@ class MetricsCollector:
         else:
             m.failed += 1
 
-        m.total_energy += result.energy
+        broadcast = transmission.message.metadata.get('broadcast')
+
+        if broadcast is not None:
+            # another copy of the same emission: charge only what it costs beyond the copies before it
+            if any(start != transmission.start_time for _, start in self._emitted):
+                self._emitted.clear()                  # a new round: earlier rounds' emissions are over
+            key = (broadcast, transmission.start_time)
+            charged_bits, charged_energy = self._emitted.get(key, (0, 0.0))
+            self._emitted[key] = (max(charged_bits, bits), max(charged_energy, energy))
+            bits, energy = max(bits - charged_bits, 0), max(energy - charged_energy, 0.0)
+
+        m.bits_sent += bits
+
+        m.total_energy += energy
 
     def reset(self) -> None:
         "Start counting again."
         self.metrics = CommunicationMetrics()
+        self._emitted = {}
 
     def summary(self) -> CommunicationMetrics:
         return self.metrics

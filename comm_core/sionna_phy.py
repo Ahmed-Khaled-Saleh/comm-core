@@ -13,35 +13,35 @@ from typing import List, Sequence, Tuple
 
 import numpy as np
 
+from .block import Block
 from .core import Message, Transmission, TransmissionResult
 from .link import Codec, IndexCodec
 from .propagation import Fading
 from .sionna_sys import SionnaErrorModel
-from .system import LinkBudget, PowerControl, RadioChannel
+from .power_control import PowerControl
+from .radio import RadioChannel
 from .topology import Link
 
 # %% auto #0
-__all__ = ['MIN_LDPC_CODERATE', 'SionnaLinkChannel']
+__all__ = ['MIN_LDPC_CODERATE', 'SionnaLink', 'SionnaLinkChannel']
 
 # %% ../nbs/sionna_phy.ipynb #0e547b35
 MIN_LDPC_CODERATE = 0.2                                  # Sionna's 5G LDPC encoder: rates below 1/5 are not supported
 
 
-class SionnaLinkChannel(RadioChannel):
-    "5G NR link level with Sionna PHY: every bit LDPC-coded with a CRC, QAM, over the channel at each subcarrier."
+class SionnaLink(Block):
+    "5G NR bits with Sionna PHY, as a block: LDPC-coded with a CRC, QAM, through h at each subcarrier, equalized and decoded."
+
+    outputs = ('success', 'payload', 'error_rate', 'num_bits', 'num_symbols', 'info')
 
     def __init__(
         self,
         codec: Codec | None = None, # Payload <-> bits; None: `IndexCodec(256)`
-        fading: Fading | None = None, # The channel of a transmission (with subcarriers, e.g. `RayTracedPathsFading`)
-        power_control: PowerControl | None = None, # Transmit power and outages; None: the link's tx_power_w
-        noise_power: float = 1.0, # Noise power at the receiver, per resource element
         mcs_index: int | None = None, # A fixed MCS; None: link adaptation (see `SionnaErrorModel`)
         bler_target: float = 0.1, # Link adaptation's target error rate
         mcs_table_index: int = 1, # 5G NR MCS table: 1 (up to 64-QAM) or 2 (up to 256-QAM)
         mcs_category: int = 0, # 0: PUSCH (uplink), 1: PDSCH (downlink)
         num_bp_iter: int = 20, # LDPC decoder iterations
-        seed: int | None = None, # Seed of the noise and the fading
         device: str | None = None, # Torch device; None: Sionna's default (a GPU if there is one)
         precision: str = 'single', # 'single' or 'double'
     ):
@@ -69,7 +69,6 @@ class SionnaLinkChannel(RadioChannel):
         self.complex = torch.complex128 if precision == 'double' else torch.complex64
         self.mcs_table_index, self.mcs_category, self.num_bp_iter = mcs_table_index, mcs_category, num_bp_iter
         self._links = {}                                  # (mcs, bits) -> the coding chain, built once
-        super().__init__(fading, power_control, noise_power, seed)
 
     def _link(self, mcs: int, num_bits: int) -> tuple:
         "(bits per symbol, resource elements, encoder, decoder, mapper, demapper) of an MCS and a payload size."
@@ -91,88 +90,104 @@ class SionnaLinkChannel(RadioChannel):
                                          Demapper('app', 'qam', q, precision=self.precision, device=self.device))
         return self._links[mcs, num_bits]
 
-    def _num_bits(self, message: Message) -> int:
-        return int(np.size(self.codec.encode(message.payload)))
-
-    def transmit(
+    def call(
         self,
-        transmission: Transmission,
-        link: Link,
-        interference: float = 0.0, # Power of the other transmissions at the receiver (see `InterferenceBackend`)
-        budget: LinkBudget | None = None, # The transmission's link budget, if already computed
-    ) -> TransmissionResult:
-        return self.transmit_batch([(transmission, link)], [interference], [budget])[0]
-
-    def transmit_batch(
-        self,
-        transmissions: List[Tuple[Transmission, Link]], # Transmissions, with their links
-        interference: Sequence[float] | None = None, # Power of the other transmissions at each receiver
-        budgets: Sequence[LinkBudget | None] | None = None, # Their link budgets, if already computed
-    ) -> List[TransmissionResult]:
-        "Several transmissions: the ones with the same MCS and size are coded and decoded together."
+        transmission, # The transmissions (their payloads)
+        h: np.ndarray, # h of each at each subcarrier, (n, K)
+        power: np.ndarray, # Their transmit powers
+        sinr: np.ndarray, # Their SINR at each subcarrier, (n, K): link adaptation's
+        noise_power: float, # Noise power at the receivers, per resource element
+        interference: np.ndarray | None = None, # Power of the other transmissions at each receiver (added to the noise)
+        group: Sequence | None = None, # The broadcast of each (one MCS for its copies), None for a unicast
+        active: np.ndarray | None = None, # Whether each one is sent (None: all); the others only count their bits
+    ) -> tuple:
+        "(success, payload, error_rate, num_bits, num_symbols, info): the ones with the same MCS and size coded and decoded together."
         torch = self._torch
-        n = len(transmissions)
-        interference = list(interference) if interference is not None else [0.0] * n
-        budgets = [b if b is not None else self.link_budget(t, link)
-                   for (t, link), b in zip(transmissions, budgets if budgets is not None else [None] * n)]
-        results = [None] * n
+        n = len(transmission)
+        success, payload, error = np.zeros(n, dtype=bool), [None] * n, np.ones(n)
+        num_bits, num_symbols, info = np.zeros(n, np.int64), np.zeros(n, np.int64), [{} for _ in range(n)]
         bits, todo = {}, []
-        for k, ((t, link), budget) in enumerate(zip(transmissions, budgets)):
-            if not budget.transmit:
-                results[k] = self._outage(t, budget)
-                continue
+        for k, t in enumerate(transmission):
             bits[k] = np.asarray(self.codec.encode(t.message.payload))
-            if budget.snr_db == math.inf:                 # same place: a perfect link
-                results[k] = TransmissionResult(success=True, transmission=t, payload=t.message.payload,
-                                                size_bits=int(bits[k].size), snr_db=math.inf, error_rate=0.0,
-                                                metadata=self._metadata(budget, bit_errors=0))
+            num_bits[k] = num_symbols[k] = bits[k].size
+            if active is not None and not active[k]:
+                continue
+            if np.isinf(h[k]).any():                      # same place: a perfect link
+                success[k], payload[k], error[k], num_symbols[k], info[k] = True, t.message.payload, 0.0, 0, {'bit_errors': 0}
             else:
                 todo.append(k)
         if not todo:
-            return results
-        # the MCS of each transmission (fixed, or link adaptation from its SINR at each subcarrier)
-        sinr = [self._sinr(budgets[k], interference[k]) for k in todo]
-        _, _, info = self.adaptation(sinr, np.array([bits[k].size for k in todo]))
-        groups = defaultdict(list)
-        for k, i in zip(todo, info):
-            groups[i['mcs'], int(bits[k].size)].append(k)
-        for (mcs, num_bits), ks in groups.items():
-            q, num_re, encoder, decoder, mapper, demapper = self._link(mcs, num_bits)
+            return success, payload, error, num_bits, num_symbols, info
+        interference = np.zeros(n) if interference is None else np.asarray(interference, float)
+        # the MCS of each transmission (fixed, or link adaptation from its SINR at each subcarrier; one per broadcast)
+        _, _, rated = self.adaptation([sinr[k] for k in todo], np.array([bits[k].size for k in todo]),
+                                      group=None if group is None else [group[k] for k in todo])
+        batches = defaultdict(list)
+        for k, i in zip(todo, rated):
+            batches[i['mcs'], int(bits[k].size)].append(k)
+        for (mcs, size), ks in batches.items():
+            q, num_re, encoder, decoder, mapper, demapper = self._link(mcs, size)
             padded = np.zeros((len(ks), encoder.k))      # the payload, zero-padded to the transport block
             for row, k in enumerate(ks):
-                padded[row, :num_bits] = bits[k].reshape(-1)
+                padded[row, :size] = bits[k].reshape(-1)
             b = torch.as_tensor(padded, dtype=self.real, device=self.device)
             x = mapper(encoder(b))                        # (batch, resource elements)
             # the channel of each resource element: its subcarrier's, filling the subcarriers in turn
-            h = np.stack([np.resize(budgets[k].response if budgets[k].response is not None else np.array([budgets[k].h]),
-                                    num_re) * math.sqrt(budgets[k].power) for k in ks])
-            h = torch.as_tensor(h, dtype=self.complex, device=self.device)
-            var = torch.as_tensor([self.noise_power + interference[k] for k in ks], dtype=self.real, device=self.device)[:, None]
+            hre = np.stack([np.resize(h[k], num_re) * math.sqrt(float(power[k])) for k in ks])
+            hre = torch.as_tensor(hre, dtype=self.complex, device=self.device)
+            var = torch.as_tensor([noise_power + interference[k] for k in ks], dtype=self.real, device=self.device)[:, None]
             gen = torch.Generator(device=self.device).manual_seed(int(self.rng.integers(2 ** 62)))
             noise = torch.complex(torch.randn(x.shape, generator=gen, device=self.device, dtype=self.real),
                                   torch.randn(x.shape, generator=gen, device=self.device, dtype=self.real))
-            y = h * x + noise.to(self.complex) * torch.sqrt(var / 2)
-            gain = (h.abs() ** 2).clamp_min(1e-30)
-            llr = demapper(y / h, var / gain)             # one-tap equalizer: the noise of each resource element
+            y = hre * x + noise.to(self.complex) * torch.sqrt(var / 2)
+            gain = (hre.abs() ** 2).clamp_min(1e-30)
+            llr = demapper(y / hre, var / gain)           # one-tap equalizer: the noise of each resource element
             b_hat, crc = decoder(llr)
             b_hat, crc = b_hat.cpu().numpy().round().astype(np.int64), crc.cpu().numpy()
             for row, k in enumerate(ks):
-                (t, link), budget = transmissions[k], budgets[k]
-                decoded = b_hat[row, :num_bits].reshape(bits[k].shape)
+                decoded = b_hat[row, :size].reshape(bits[k].shape)
                 errors = int((decoded != bits[k]).sum())
-                success = bool(crc[row])
-                latency, energy = self._timing(budget, num_re, link)
-                extra = {'interference_power': interference[k]} if interference[k] else {}
-                results[k] = TransmissionResult(
-                    success=success,
-                    transmission=t,
-                    payload=self.codec.decode(decoded) if success else None,
-                    latency=latency,
-                    size_bits=num_bits,
-                    energy=energy,
-                    snr_db=self._sinr_db(budget, interference[k]),
-                    error_rate=errors / num_bits,
-                    metadata=self._metadata(budget, mcs=mcs, resource_elements=num_re, tb_size=int(encoder.tb_size),
-                                            bit_errors=errors, **extra),
-                )
-        return results
+                success[k] = bool(crc[row])
+                payload[k] = self.codec.decode(decoded) if success[k] else None
+                error[k], num_symbols[k] = errors / size, num_re
+                info[k] = {'mcs': mcs, 'resource_elements': num_re, 'tb_size': int(encoder.tb_size), 'bit_errors': errors}
+        return success, payload, error, num_bits, num_symbols, info
+
+
+class SionnaLinkChannel(RadioChannel):
+    "5G NR link level with Sionna PHY: every bit LDPC-coded with a CRC, QAM, over the channel at each subcarrier."
+
+    def __init__(
+        self,
+        codec: Codec | None = None, # Payload <-> bits; None: `IndexCodec(256)`
+        fading: Fading | None = None, # The channel of a transmission (with subcarriers, e.g. `RayTracedPathsFading`)
+        power_control: PowerControl | None = None, # Transmit power and outages; None: the link's tx_power_w
+        noise_power: float = 1.0, # Noise power at the receiver, per resource element
+        mcs_index: int | None = None, # A fixed MCS; None: link adaptation (see `SionnaErrorModel`)
+        bler_target: float = 0.1, # Link adaptation's target error rate
+        mcs_table_index: int = 1, # 5G NR MCS table: 1 (up to 64-QAM) or 2 (up to 256-QAM)
+        mcs_category: int = 0, # 0: PUSCH (uplink), 1: PDSCH (downlink)
+        num_bp_iter: int = 20, # LDPC decoder iterations
+        seed: int | None = None, # Seed of the noise and the fading
+        device: str | None = None, # Torch device; None: Sionna's default (a GPU if there is one)
+        precision: str = 'single', # 'single' or 'double'
+    ):
+        self.link_level = SionnaLink(codec, mcs_index, bler_target, mcs_table_index, mcs_category, num_bp_iter, device, precision)
+        super().__init__(fading, power_control, noise_power, seed)
+
+    @property
+    def codec(self) -> Codec:
+        return self.link_level.codec
+
+    @property
+    def adaptation(self) -> SionnaErrorModel:
+        "Link adaptation's PHY abstraction (Sionna SYS)."
+        return self.link_level.adaptation
+
+    @property
+    def device(self) -> str:
+        return self.link_level.device
+
+    def receiver(self) -> list:
+        "The bits: `SionnaLink`."
+        return [self.link_level]
