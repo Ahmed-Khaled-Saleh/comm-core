@@ -130,9 +130,10 @@ class SionnaLinkChannel(RadioChannel):
                 todo.append(k)
         if not todo:
             return results
-        # the MCS of each transmission (fixed, or link adaptation from its SINR at each subcarrier)
+        # the MCS of each transmission (fixed, or link adaptation from its SINR at each subcarrier; one per broadcast)
         sinr = [self._sinr(budgets[k], interference[k]) for k in todo]
-        _, _, info = self.adaptation(sinr, np.array([bits[k].size for k in todo]))
+        _, _, info = self.adaptation(sinr, np.array([bits[k].size for k in todo]),
+                                     groups=[transmissions[k][0].message.metadata.get('broadcast') for k in todo])
         groups = defaultdict(list)
         for k, i in zip(todo, info):
             groups[i['mcs'], int(bits[k].size)].append(k)

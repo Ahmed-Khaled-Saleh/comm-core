@@ -7,6 +7,7 @@ Docs: https://Ahmed-Khaled-Saleh.github.io/comm-core/system.html.md"""
 # %% ../nbs/system.ipynb #fbfb18fb
 from __future__ import annotations
 
+import inspect
 import math
 from abc import ABC, abstractmethod
 from collections import deque
@@ -67,13 +68,16 @@ def packet_error_rate(
 
 # %% ../nbs/system.ipynb #22b17d15
 class ErrorModel(ABC):
-    "A PHY abstraction: the packet error rate of transmissions, from their SINR."
+    """A PHY abstraction: the packet error rate of transmissions, from their SINR.
+
+    The copies of a broadcast are one emission: a model that picks a rate (e.g. an MCS) gives them the same one."""
 
     @abstractmethod
     def __call__(
         self,
         sinr: List[np.ndarray], # Linear SINR of each transmission, at each of its subcarriers (one value: flat)
         size_bits: np.ndarray, # Packet size of each transmission
+        groups: Sequence | None = None, # A label per transmission: the copies of a broadcast share one (None: alone)
     ) -> Tuple[np.ndarray, np.ndarray, List[dict]]:
         "(packet error rates, symbols on the air, extra metadata) of the transmissions."
 
@@ -86,7 +90,7 @@ def _mean_snr_db(sinr: np.ndarray) -> float:
 class BPSKErrorModel(ErrorModel):
     "Uncoded BPSK over AWGN at the mean SINR (see `packet_error_rate`); one symbol per bit."
 
-    def __call__(self, sinr, size_bits):
+    def __call__(self, sinr, size_bits, groups=None):
         per = [packet_error_rate(_mean_snr_db(s), max(int(b), 1)) for s, b in zip(sinr, size_bits)]
         return np.array(per, float), np.asarray(size_bits, int), [{} for _ in sinr]
 
@@ -100,7 +104,7 @@ class ThresholdErrorModel(ErrorModel):
     ):
         self.threshold_db = threshold_db
 
-    def __call__(self, sinr, size_bits):
+    def __call__(self, sinr, size_bits, groups=None):
         per = [packet_error_rate(_mean_snr_db(s), 1, 'threshold', self.threshold_db) for s in sinr]
         return np.array(per, float), np.asarray(size_bits, int), [{} for _ in sinr]
 
@@ -129,7 +133,7 @@ class EESMErrorModel(ErrorModel):
         self.beta, self.threshold_db, self.slope = beta, threshold_db, slope
         self.reference_bytes, self.bits_per_symbol = reference_bytes, bits_per_symbol
 
-    def __call__(self, sinr, size_bits):
+    def __call__(self, sinr, size_bits, groups=None):
         per, info = [], []
         for s, bits in zip(sinr, size_bits):
             eff = eesm(s, self.beta)
@@ -487,6 +491,8 @@ class SystemLevelChannel(RadioChannel):
         else:
             raise ValueError(f"per_model: 'bpsk', 'threshold' or an ErrorModel, not {per_model!r}")
         self.per_model, self.snr_threshold_db = per_model, snr_threshold_db
+        # an error model written before broadcasts may not take `groups`: its copies are then rated one by one
+        self._takes_groups = 'groups' in inspect.signature(self.error_model.__call__).parameters
         super().__init__(fading, power_control, noise_power, seed)
 
     def transmit(
@@ -515,8 +521,10 @@ class SystemLevelChannel(RadioChannel):
         symbols = {k: transmissions[k][0].message.size_bits or 0 for k in sent}
         extra = {k: {} for k in sent}
         if rated:
+            groups = [transmissions[k][0].message.metadata.get('broadcast') for k in rated]
             p, s, info = self.error_model([self._sinr(budgets[k], interference[k]) for k in rated],
-                                          np.array([transmissions[k][0].message.size_bits or 1 for k in rated]))
+                                          np.array([transmissions[k][0].message.size_bits or 1 for k in rated]),
+                                          **({'groups': groups} if any(g is not None for g in groups) and self._takes_groups else {}))
             for k, pk, sk, ik in zip(rated, p, s, info):
                 per[k], symbols[k], extra[k] = float(pk), int(sk), ik
         results = [None] * n

@@ -11,7 +11,8 @@ import heapq
 import itertools
 from collections import defaultdict
 from dataclasses import replace
-from typing import Dict, List
+from typing import Any, Dict, List
+from uuid import uuid4
 
 from .backend import CommunicationBackend
 from .core import Message, Node, TransmissionResult
@@ -108,6 +109,41 @@ class Network:
             raise ValueError(f"cannot send at {at}: the network is already at {self.time}")
         else:
             heapq.heappush(self._timed, (at, next(self._order), message))
+
+    def broadcast(
+        self,
+        sender: str, # The sending node
+        payload: Any, # What every neighbour gets
+        at: float | None = None, # When it is sent (None: with the next step); see `send`
+        **fields, # Other `Message` fields, e.g. `type`, `size_bits`, `metadata`
+    ) -> List[Message]:
+        "Send `payload` to the neighbours of `sender` (in the topology) only: one message each, of one broadcast."
+
+        if sender not in self.nodes:
+            raise ValueError(
+                f"Unknown sender: {sender}"
+            )
+
+        broadcast_id = str(uuid4())
+        metadata = fields.pop('metadata', {})
+
+        messages = [
+            Message(sender=sender, receiver=receiver, payload=payload,
+                    metadata={**metadata, 'broadcast': broadcast_id}, **fields)
+            for receiver in self.topology.neighbors(sender)
+        ]
+
+        # all or nothing: no copy goes out if one cannot
+        unknown = [message.receiver for message in messages if message.receiver not in self.nodes]
+        if unknown:
+            raise ValueError(
+                f"Unknown receivers: {unknown}"
+            )
+
+        for message in messages:
+            self.send(message, at=at)
+
+        return messages
 
     def step(
         self,

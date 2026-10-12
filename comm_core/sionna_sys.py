@@ -8,6 +8,7 @@ Docs: https://Ahmed-Khaled-Saleh.github.io/comm-core/sionna_sys.html.md"""
 from __future__ import annotations
 
 import math
+from collections import defaultdict
 from typing import Sequence
 
 import numpy as np
@@ -96,7 +97,7 @@ class SionnaErrorModel(ErrorModel):
             self._allocations[num_bits, i] = nr_allocation(num_bits, self.modulation_order[i], self.coderate[i])
         return self._allocations[num_bits, i]
 
-    def __call__(self, sinr, size_bits):
+    def __call__(self, sinr, size_bits, groups=None):
         torch = self._torch
         n, width, M = len(sinr), max(len(s) for s in sinr), len(self.mcs)
         grid = np.zeros((n, width))                        # 0: a subcarrier the transmission does not use
@@ -113,6 +114,13 @@ class SionnaErrorModel(ErrorModel):
         tbler = torch.nan_to_num(tbler, nan=1.0, posinf=1.0).clamp(0, 1)   # no table entry: lost
         if self.mcs_index is None:                          # the highest MCS meeting the target, else the lowest
             ok = tbler <= self.bler_target
+            if groups is not None:                          # a broadcast's copies: an MCS meeting the target at all
+                copies = defaultdict(list)
+                for k, g in enumerate(groups):
+                    if g is not None:
+                        copies[g].append(k)
+                for ks in copies.values():
+                    ok[ks] = ok[ks].all(0)
             best = torch.where(ok.any(1), (ok * torch.arange(M, device=self.device)).argmax(1),
                                torch.zeros(n, dtype=torch.long, device=self.device))
         else:
