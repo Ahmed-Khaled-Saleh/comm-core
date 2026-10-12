@@ -14,6 +14,7 @@ website:
           - examples/06_predicted_power.ipynb
           - examples/07_power_across_layouts.ipynb
           - examples/08_map_mismatch.ipynb
+          - examples/09_c3wm_blocks.ipynb
       - section: Core
         contents:
           - 00_core.ipynb
