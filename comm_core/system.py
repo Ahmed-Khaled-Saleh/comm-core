@@ -7,26 +7,25 @@ Docs: https://Ahmed-Khaled-Saleh.github.io/comm-core/system.html.md"""
 # %% ../nbs/system.ipynb #fbfb18fb
 from __future__ import annotations
 
-import inspect
 import math
 from abc import ABC, abstractmethod
-from collections import deque
-from dataclasses import dataclass
+from collections import defaultdict, deque
 from typing import Any, Callable, List, Mapping, Sequence, Tuple
 
 import numpy as np
 
-from .backend import CommunicationBackend
+from .backend import STEP_INPUTS, PipelineBackend, step_inputs, to_results
+from .block import Block, Pipeline, _child_seed
 from .channel import Channel
 from .core import Message, Transmission, TransmissionResult
-from .propagation import Fading, NoFading
+from .propagation import Fading, NoFading, effective_coefficient
 from .topology import Link
 
 # %% auto #0
 __all__ = ['bpsk_bit_error_rate', 'packet_error_rate', 'ErrorModel', 'BPSKErrorModel', 'ThresholdErrorModel', 'eesm',
-           'EESMErrorModel', 'PowerControl', 'FixedPower', 'ChannelInversion', 'MessagePower', 'gain_windows',
-           'fit_gain_predictor', 'PredictedChannelInversion', 'MapChannelInversion', 'LinkBudget', 'RadioChannel',
-           'SystemLevelChannel', 'InterferenceBackend']
+           'EESMErrorModel', 'LinkAdaptation', 'PowerControl', 'FixedPower', 'ChannelInversion', 'MessagePower',
+           'gain_windows', 'fit_gain_predictor', 'PredictedChannelInversion', 'MapChannelInversion', 'SINR', 'Decide',
+           'Airtime', 'RadioChannel', 'SystemLevelChannel', 'Interference', 'InterferenceBackend']
 
 # %% ../nbs/system.ipynb #bcdaea40
 def _is_torch(x) -> bool:
@@ -67,17 +66,40 @@ def packet_error_rate(
     raise ValueError(f"model: 'bpsk' or 'threshold', not {model!r}")
 
 # %% ../nbs/system.ipynb #22b17d15
-class ErrorModel(ABC):
-    """A PHY abstraction: the packet error rate of transmissions, from their SINR.
+class ErrorModel(Block, ABC):
+    """A PHY abstraction: the packet error rate of transmissions, from their SINR. Subclasses write `rate`.
 
     The copies of a broadcast are one emission: a model that picks a rate (e.g. an MCS) gives them the same one."""
 
-    @abstractmethod
-    def __call__(
+    outputs = ('per', 'num_symbols', 'info')
+
+    def call(
         self,
-        sinr: List[np.ndarray], # Linear SINR of each transmission, at each of its subcarriers (one value: flat)
+        sinr: Sequence[np.ndarray], # Linear SINR of each transmission at each of its subcarriers, e.g. (n, K)
         size_bits: np.ndarray, # Packet size of each transmission
-        groups: Sequence | None = None, # A label per transmission: the copies of a broadcast share one (None: alone)
+        group: Sequence | None = None, # The broadcast of each transmission, None for a unicast (None: all unicasts)
+        active: np.ndarray | None = None, # Whether each one is sent (None: all)
+    ) -> Tuple[np.ndarray, np.ndarray, List[dict]]:
+        "(packet error rates, symbols on the air, metadata) of every transmission; `rate` gives them for the ones to rate."
+        n = len(sinr)
+        size = np.asarray(size_bits).astype(np.int64).reshape(n)
+        per, symbols, info = np.zeros(n), size.copy(), [{} for _ in range(n)]
+        rows = [k for k in range(n) if (active is None or active[k]) and not np.isinf(np.asarray(sinr[k])).any()]
+        if rows:
+            groups = None if group is None else [group[k] for k in rows]
+            if groups is not None and all(g is None for g in groups):
+                groups = None
+            p, s, extra = self.rate([np.asarray(sinr[k], float).reshape(-1) for k in rows], np.maximum(size[rows], 1), groups)
+            for k, pk, sk, ik in zip(rows, p, s, extra):
+                per[k], symbols[k], info[k] = float(pk), int(sk), ik
+        return per, symbols, info
+
+    @abstractmethod
+    def rate(
+        self,
+        sinr: List[np.ndarray], # Linear SINR of each transmission to rate, at each of its subcarriers (one value: flat)
+        size_bits: np.ndarray, # Their packet sizes (at least 1 bit)
+        group: Sequence | None = None, # Their broadcasts, None for a unicast (None: all unicasts)
     ) -> Tuple[np.ndarray, np.ndarray, List[dict]]:
         "(packet error rates, symbols on the air, extra metadata) of the transmissions."
 
@@ -90,7 +112,7 @@ def _mean_snr_db(sinr: np.ndarray) -> float:
 class BPSKErrorModel(ErrorModel):
     "Uncoded BPSK over AWGN at the mean SINR (see `packet_error_rate`); one symbol per bit."
 
-    def __call__(self, sinr, size_bits, groups=None):
+    def rate(self, sinr, size_bits, group=None):
         per = [packet_error_rate(_mean_snr_db(s), max(int(b), 1)) for s, b in zip(sinr, size_bits)]
         return np.array(per, float), np.asarray(size_bits, int), [{} for _ in sinr]
 
@@ -104,7 +126,7 @@ class ThresholdErrorModel(ErrorModel):
     ):
         self.threshold_db = threshold_db
 
-    def __call__(self, sinr, size_bits, groups=None):
+    def rate(self, sinr, size_bits, group=None):
         per = [packet_error_rate(_mean_snr_db(s), 1, 'threshold', self.threshold_db) for s in sinr]
         return np.array(per, float), np.asarray(size_bits, int), [{} for _ in sinr]
 
@@ -133,7 +155,7 @@ class EESMErrorModel(ErrorModel):
         self.beta, self.threshold_db, self.slope = beta, threshold_db, slope
         self.reference_bytes, self.bits_per_symbol = reference_bytes, bits_per_symbol
 
-    def __call__(self, sinr, size_bits, groups=None):
+    def rate(self, sinr, size_bits, group=None):
         per, info = [], []
         for s, bits in zip(sinr, size_bits):
             eff = eesm(s, self.beta)
@@ -148,9 +170,44 @@ class EESMErrorModel(ErrorModel):
         symbols = np.ceil(np.asarray(size_bits, float) / self.bits_per_symbol).astype(int)
         return np.array(per, float), symbols, info
 
+# %% ../nbs/system.ipynb #a88a4ee8
+class LinkAdaptation(Block):
+    "The fastest rate meeting a target error rate (else the slowest): one per transmission, one for all the copies of a broadcast."
+
+    outputs = ('choice',)
+
+    def __init__(
+        self,
+        target: float = 0.1, # The highest error rate allowed
+    ):
+        self.target = target
+
+    def call(
+        self,
+        error_rate, # Error rate of each transmission at each rate, (n, M), the rates from slowest to fastest (numpy or torch)
+        group: Sequence | None = None, # The broadcast of each transmission, None for a unicast (None: all unicasts)
+    ):
+        "Index of the rate chosen for each transmission, (n,)."
+        ok = error_rate <= self.target
+        if group is not None:                           # a broadcast's copies: a rate meeting the target at all of them
+            copies = defaultdict(list)
+            for k, g in enumerate(group):
+                if g is not None:
+                    copies[g].append(k)
+            for ks in copies.values():
+                ok[ks] = ok[ks].all(0)
+        if _is_torch(ok):
+            import torch
+            fastest = (ok * torch.arange(ok.shape[1], device=ok.device)).argmax(1)
+            return torch.where(ok.any(1), fastest, torch.zeros_like(fastest))
+        fastest = (ok * np.arange(ok.shape[1])).argmax(1)
+        return np.where(ok.any(1), fastest, 0)
+
 # %% ../nbs/system.ipynb #67949a4b
-class PowerControl(ABC):
+class PowerControl(Block, ABC):
     "How much power a transmission uses, and whether it is sent at all."
+
+    outputs = ('power', 'active')
 
     @abstractmethod
     def allocate(
@@ -162,13 +219,25 @@ class PowerControl(ABC):
     ):
         "(power, transmit): the transmit power, and whether to transmit (False: outage), shaped like `gain`."
 
-    def reset(self, seed: int | None = None) -> None:
-        "Start over (e.g. a new episode): forget any state, e.g. past channel gains."
-        pass
-
-    def update(self, time: float) -> None:
-        "A new round of transmissions begins at `time` (e.g. to note where the nodes are)."
-        pass
+    def call(
+        self,
+        h: np.ndarray, # h of each transmission at each subcarrier, (n, K)
+        noise_power: float, # Noise power at the receivers
+        link: Sequence[Link], # Their links
+        transmission: Sequence[Transmission] | None = None, # The transmissions (for their messages)
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        "(power, active) of each transmission: `allocate`, one by one; a disabled link is not active."
+        n = len(link)
+        power, active = np.zeros(n), np.zeros(n, dtype=bool)
+        for k in range(n):
+            coefficient = effective_coefficient(h[k])
+            if math.isinf(abs(coefficient)):              # the same place: a perfect link, no power needed
+                active[k] = link[k].enabled
+                continue
+            message = transmission[k].message if transmission is not None else None
+            p, ok = self.allocate(abs(coefficient) ** 2, noise_power, link=link[k], message=message)
+            power[k], active[k] = float(p), bool(ok) and link[k].enabled
+        return power, active
 
 
 class FixedPower(PowerControl):
@@ -361,28 +430,66 @@ class MapChannelInversion(PowerControl):
         return power, math.isfinite(power) and power <= self.max_power
 
 # %% ../nbs/system.ipynb #3c4f4175
-def _child_seed(seed: int | None, i: int) -> int | None:
-    return None if seed is None else int(np.random.SeedSequence([seed, i]).generate_state(1)[0])
+class SINR(Block):
+    "The SINR of each transmission at each subcarrier: P |h|² / (noise power + interference); infinite between nodes at the same place."
+
+    outputs = ('sinr',)
+
+    def call(
+        self,
+        h: np.ndarray, # h of each transmission at each subcarrier, (n, K)
+        power: np.ndarray, # Their transmit powers, (n,)
+        noise_power: float, # Noise power at the receivers
+        interference: np.ndarray | None = None, # Power of the other transmissions at each receiver, (n,)
+    ) -> np.ndarray:
+        "Linear SINR, (n, K)."
+        gain = np.abs(np.asarray(h)) ** 2
+        noise = noise_power + (0.0 if interference is None else np.asarray(interference, float)[:, None])
+        with np.errstate(divide='ignore', invalid='ignore', over='ignore'):
+            sinr = np.asarray(power, float)[:, None] * gain / noise
+        sinr[np.isinf(gain).any(1)] = math.inf
+        return sinr
 
 
-@dataclass
-class LinkBudget:
-    "A transmission's channel, transmit power and SNR."
-    h: complex # Channel coefficient; with subcarriers, √(mean |h|²) (math.inf: the nodes are at the same place)
-    power: float # Transmit power
-    transmit: bool # False: an outage, nothing is sent
-    snr_db: float # P |h|^2 / noise power, dB (with subcarriers: the mean SNR)
-    response: np.ndarray | None = None # h at each subcarrier (None: flat)
+class Decide(Block):
+    "Whether each packet arrives: lost with its packet error rate, one draw per transmission sent."
 
-    @property
-    def gain_db(self) -> float:
-        "|h|^2 in dB."
-        gain = abs(self.h) ** 2
-        return 10 * math.log10(gain) if gain > 0 else -math.inf
+    outputs = ('success',)
+
+    def call(
+        self,
+        per: np.ndarray, # Packet error rate of each transmission
+        active: np.ndarray | None = None, # Whether each one is sent (None: all)
+    ) -> np.ndarray:
+        success = np.zeros(len(per), dtype=bool)
+        for k in range(len(per)):
+            if active is None or active[k]:
+                success[k] = self.rng.random() >= per[k]
+        return success
+
+
+class Airtime(Block):
+    "Time on the air (symbols / bandwidth; 0 with an infinite bandwidth) and transmit energy (power × time; power × symbols without a bandwidth)."
+
+    outputs = ('latency', 'energy')
+
+    def call(
+        self,
+        num_symbols: np.ndarray, # Symbols each transmission puts on the air
+        power: np.ndarray, # Their transmit powers
+        link: Sequence[Link], # Their links (the bandwidth)
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        n = len(link)
+        latency, energy = np.zeros(n), np.zeros(n)
+        for k in range(n):
+            symbols, bandwidth, p = int(num_symbols[k]), link[k].bandwidth_hz, float(power[k])
+            duration = symbols / bandwidth if math.isfinite(bandwidth) else 0.0
+            latency[k], energy[k] = duration, p * (duration if duration else symbols)
+        return latency, energy
 
 
 class RadioChannel(Channel):
-    "A channel over radio links: h from a fading, P from a power control, noise; subclasses decide what arrives."
+    "A channel over radio links, made of blocks: a `Fading` (h), a `PowerControl` (P), the SINR, a receiver (the subclass's), the airtime."
 
     def __init__(
         self,
@@ -394,80 +501,75 @@ class RadioChannel(Channel):
         self.fading = fading if fading is not None else NoFading()
         self.power_control = power_control if power_control is not None else FixedPower()
         self.noise_power = noise_power
-        self.rng = np.random.default_rng()
+        self.sinr, self.airtime = SINR(), Airtime()
+        self._pipelines = {}
         self.reset(seed)
 
+    def receiver(self) -> List[Block]:
+        "The blocks between the SINR and the airtime, which decide what arrives (the last one draws it)."
+        raise NotImplementedError
+
+    def blocks(
+        self,
+        interference: Block | None = None, # An `Interference`, after the power control (None: none)
+    ) -> List[Block]:
+        "The channel's blocks, in order."
+        return [self.fading, self.power_control, *([interference] if interference is not None else []), self.sinr,
+                *self.receiver(), self.airtime]
+
+    def pipeline(
+        self,
+        interference: Block | None = None, # An `Interference`, after the power control (None: none)
+    ) -> Pipeline:
+        "The channel as a `Pipeline` of its blocks (see `block`), with the step's inputs and `noise_power`."
+        blocks = self.blocks(interference)
+        key = tuple(map(id, blocks))
+        if key not in self._pipelines:
+            self._pipelines = {key: Pipeline(blocks, inputs=STEP_INPUTS + ('noise_power',))}
+        return self._pipelines[key]
+
+    def run(
+        self,
+        pipeline: Pipeline, # This channel's pipeline, e.g. with interference
+        transmissions: List[Tuple[Transmission, Link]], # The transmissions, with their links
+    ) -> List[TransmissionResult]:
+        "The results of transmissions through a pipeline, with this channel's noise power."
+        if not transmissions:
+            return []
+        return to_results(pipeline(**step_inputs(transmissions), noise_power=self.noise_power))
+
+    def transmit(
+        self,
+        transmission: Transmission,
+        link: Link,
+    ) -> TransmissionResult:
+        return self.transmit_batch([(transmission, link)])[0]
+
+    def transmit_batch(
+        self,
+        transmissions: List[Tuple[Transmission, Link]], # Transmissions, with their links
+    ) -> List[TransmissionResult]:
+        "Several transmissions, with one call of each block (much faster with `SionnaErrorModel`)."
+        return self.run(self.pipeline(), transmissions)
+
     def reset(self, seed: int | None = None) -> None:
-        "Start over: `seed` reseeds the channel and the fading; the power control forgets its state."
-        if seed is not None:
-            self.rng = np.random.default_rng(_child_seed(seed, 0))
+        "Start over: `seed` reseeds the receiver, the fading and the power control, each with its own seed; the power control forgets its state."
+        *others, draw = self.receiver()
+        draw.reset(_child_seed(seed, 0))
         self.fading.reset(_child_seed(seed, 1))
         self.power_control.reset(_child_seed(seed, 2))
+        for i, block in enumerate(others):
+            block.reset(_child_seed(seed, 3 + i))
 
     def update(self, time: float) -> None:
-        "A new round: the power control learns it (see `PowerControl.update`)."
-        self.power_control.update(time)
+        "A new round: passed to the blocks (e.g. `MapChannelInversion` notes where the nodes are)."
+        for block in self.blocks():
+            block.update(time)
 
     def set_positions(self, positions) -> None:
         "Where the nodes are, for a fading that depends on it (e.g. `RayTracedFading`)."
         if hasattr(self.fading, 'set_positions'):
             self.fading.set_positions(positions)
-
-    def link_budget(
-        self,
-        transmission: Transmission,
-        link: Link,
-    ) -> LinkBudget:
-        "The channel, power and SNR of a transmission (nodes at the same place: a perfect link)."
-        response = np.asarray(self.fading.response(transmission, link), np.complex128).reshape(-1)
-        if np.isinf(response).any():
-            return LinkBudget(complex(math.inf), 0.0, link.enabled, math.inf)
-        h = complex(response[0]) if response.size == 1 else complex(np.sqrt(np.mean(np.abs(response) ** 2)))
-        gain = abs(h) ** 2
-        power, transmit = self.power_control.allocate(gain, self.noise_power, link=link, message=transmission.message)
-        power = float(power)
-        snr = power * gain / self.noise_power
-        return LinkBudget(h, power, bool(transmit) and link.enabled, 10 * math.log10(snr) if snr > 0 else -math.inf,
-                          response if response.size > 1 else None)
-
-    def _sinr(self, budget: LinkBudget, interference: float = 0.0) -> np.ndarray:
-        "Linear SINR at each subcarrier: P |h_k|^2 / (noise power + interference)."
-        gains = np.abs(budget.response) ** 2 if budget.response is not None else np.array([abs(budget.h) ** 2])
-        return budget.power * gains / (self.noise_power + interference)
-
-    def _sinr_db(self, budget: LinkBudget, interference: float = 0.0) -> float:
-        "P |h|^2 / (noise power + interference), dB: the SNR without interference."
-        if budget.snr_db == math.inf or not interference:
-            return budget.snr_db
-        sinr = budget.power * abs(budget.h) ** 2 / (self.noise_power + interference)
-        return 10 * math.log10(sinr) if sinr > 0 else -math.inf
-
-    def _num_bits(self, message: Message) -> int:
-        "Bits of a message on the air."
-        return message.size_bits or 0
-
-    def _num_symbols(self, num_bits: int) -> int:
-        return num_bits
-
-    def _lost(self, transmission: Transmission, link: Link, budget: LinkBudget, snr_db: float, **reason) -> TransmissionResult:
-        "Sent (and paid for), but not received."
-        bits = self._num_bits(transmission.message)
-        latency, energy = self._timing(budget, self._num_symbols(bits), link)
-        return TransmissionResult(success=False, transmission=transmission, payload=None, latency=latency, size_bits=bits,
-                                  energy=energy, snr_db=snr_db, error_rate=1.0, metadata=self._metadata(budget, **reason))
-
-    def _metadata(self, budget: LinkBudget, **extra) -> dict:
-        return {'channel_gain_db': budget.gain_db, 'tx_power': budget.power if budget.transmit else 0.0, **extra}
-
-    def _outage(self, transmission: Transmission, budget: LinkBudget) -> TransmissionResult:
-        return TransmissionResult(success=False, transmission=transmission, payload=None, size_bits=0,
-                                  snr_db=budget.snr_db, metadata=self._metadata(budget, outage=True))
-
-    @staticmethod
-    def _timing(budget: LinkBudget, num_symbols: int, link: Link) -> tuple:
-        "(latency, energy) of `num_symbols` symbols."
-        duration = num_symbols / link.bandwidth_hz if math.isfinite(link.bandwidth_hz) else 0.0
-        return duration, budget.power * (duration if duration else num_symbols)
 
 # %% ../nbs/system.ipynb #d8c711e9
 class SystemLevelChannel(RadioChannel):
@@ -491,66 +593,61 @@ class SystemLevelChannel(RadioChannel):
         else:
             raise ValueError(f"per_model: 'bpsk', 'threshold' or an ErrorModel, not {per_model!r}")
         self.per_model, self.snr_threshold_db = per_model, snr_threshold_db
-        # an error model written before broadcasts may not take `groups`: its copies are then rated one by one
-        self._takes_groups = 'groups' in inspect.signature(self.error_model.__call__).parameters
+        self.decide = Decide()
         super().__init__(fading, power_control, noise_power, seed)
 
-    def transmit(
-        self,
-        transmission: Transmission,
-        link: Link,
-        interference: float = 0.0, # Power of the other transmissions at the receiver (see `InterferenceBackend`)
-        budget: LinkBudget | None = None, # The transmission's link budget, if already computed
-    ) -> TransmissionResult:
-        return self.transmit_batch([(transmission, link)], [interference], [budget])[0]
-
-    def transmit_batch(
-        self,
-        transmissions: List[Tuple[Transmission, Link]], # Transmissions, with their links
-        interference: Sequence[float] | None = None, # Power of the other transmissions at each receiver
-        budgets: Sequence[LinkBudget | None] | None = None, # Their link budgets, if already computed
-    ) -> List[TransmissionResult]:
-        "Several transmissions, with one call of the error model (much faster with `SionnaErrorModel`)."
-        n = len(transmissions)
-        interference = list(interference) if interference is not None else [0.0] * n
-        budgets = [b if b is not None else self.link_budget(t, link)
-                   for (t, link), b in zip(transmissions, budgets if budgets is not None else [None] * n)]
-        sent = [k for k in range(n) if budgets[k].transmit]
-        rated = [k for k in sent if budgets[k].snr_db != math.inf]     # nodes at the same place: a perfect link
-        per = {k: 0.0 for k in sent}
-        symbols = {k: transmissions[k][0].message.size_bits or 0 for k in sent}
-        extra = {k: {} for k in sent}
-        if rated:
-            groups = [transmissions[k][0].message.metadata.get('broadcast') for k in rated]
-            p, s, info = self.error_model([self._sinr(budgets[k], interference[k]) for k in rated],
-                                          np.array([transmissions[k][0].message.size_bits or 1 for k in rated]),
-                                          **({'groups': groups} if any(g is not None for g in groups) and self._takes_groups else {}))
-            for k, pk, sk, ik in zip(rated, p, s, info):
-                per[k], symbols[k], extra[k] = float(pk), int(sk), ik
-        results = [None] * n
-        for k in range(n):
-            (t, link), budget = transmissions[k], budgets[k]
-            if not budget.transmit:
-                results[k] = self._outage(t, budget)
-                continue
-            success = bool(self.rng.random() >= per[k])
-            latency, energy = self._timing(budget, symbols[k], link)
-            metadata = {**({'interference_power': interference[k]} if interference[k] else {}), **extra[k]}
-            results[k] = TransmissionResult(
-                success=success,
-                transmission=t,
-                payload=t.message.payload if success else None,
-                latency=latency,
-                size_bits=t.message.size_bits or 0,
-                energy=energy,
-                snr_db=self._sinr_db(budget, interference[k]),
-                error_rate=per[k],
-                metadata=self._metadata(budget, **metadata),
-            )
-        return results
+    def receiver(self) -> List[Block]:
+        "The error model, then the draw of what arrives."
+        return [self.error_model, self.decide]
 
 # %% ../nbs/system.ipynb #8cca0276
-class InterferenceBackend(CommunicationBackend):
+class Interference(Block):
+    "The power the other senders put at each receiver, from the fading's coefficients between them; and half-duplex."
+
+    outputs = ('interference', 'active', 'half_duplex')
+
+    def __init__(
+        self,
+        fading: Fading, # Gives the interfering paths (the channel's fading)
+        half_duplex: bool = True, # A node that transmits in a step cannot receive in it
+    ):
+        self.fading, self.half_duplex = fading, half_duplex
+
+    def children(self) -> list:
+        "None: the fading is the channel's, reset and updated there."
+        return []
+
+    def call(
+        self,
+        transmission: Sequence[Transmission], # The transmissions of the step
+        power: np.ndarray, # Their transmit powers
+        active: np.ndarray, # Whether each one is sent
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        "(interference, active, half_duplex): `active` without the transmissions whose receiver was transmitting (`half_duplex`)."
+        emitted = {}                                   # sender -> its power on the air (its strongest transmission)
+        for t, p, a in zip(transmission, power, active):
+            if a:
+                emitted[t.sender] = max(emitted.get(t.sender, 0.0), float(p))
+        gains = {}                                     # |h|^2 of the interfering paths, once per step
+
+        def gain(sender, receiver, message):
+            if (sender, receiver) not in gains:
+                path = Transmission(message=message, sender=sender, receiver=receiver, start_time=0.0)
+                gains[sender, receiver] = abs(complex(self.fading.coefficient(path, Link(sender, receiver)))) ** 2
+            return gains[sender, receiver]
+
+        n = len(transmission)
+        interference, deaf = np.zeros(n), np.zeros(n, dtype=bool)
+        for k, t in enumerate(transmission):
+            if active[k] and self.half_duplex and t.receiver in emitted:
+                deaf[k] = True
+                continue
+            interference[k] = sum(p * gain(s, t.receiver, t.message) for s, p in emitted.items()
+                                  if p > 0 and s not in (t.sender, t.receiver))
+        return interference, np.asarray(active, bool) & ~deaf, deaf
+
+
+class InterferenceBackend(PipelineBackend):
     "The transmissions of a step share the medium: each one's SINR counts the power of the other senders at its receiver."
 
     def __init__(
@@ -559,48 +656,28 @@ class InterferenceBackend(CommunicationBackend):
         half_duplex: bool = True, # A node that transmits in a step cannot receive in it
     ):
         self.channel, self.half_duplex = channel, half_duplex
+        self._interference = None
 
-    def transmit(self, transmission: Transmission, link: Link) -> TransmissionResult:
-        "A transmission alone: no interference."
-        return self.channel.transmit(transmission, link)
+    @property
+    def pipeline(self) -> Pipeline:
+        "The channel's blocks, with an `Interference` after the power control."
+        i = self._interference
+        if i is None or i.fading is not self.channel.fading or i.half_duplex != self.half_duplex:
+            self._interference = Interference(self.channel.fading, self.half_duplex)
+        return self.channel.pipeline(self._interference)
 
     def transmit_all(
         self,
         transmissions: List[Tuple[Transmission, Link]], # The transmissions of one step, with their links
     ) -> List[TransmissionResult]:
         "The transmissions of one step, at the same time."
-        budgets = [self.channel.link_budget(t, link) for t, link in transmissions]
-        emitted = {}                                   # sender -> its power on the air (its strongest transmission)
-        for (t, _), budget in zip(transmissions, budgets):
-            if budget.transmit:
-                emitted[t.sender] = max(emitted.get(t.sender, 0.0), budget.power)
-        gains = {}                                     # |h|^2 of the interfering paths, once per step
-
-        def gain(sender, receiver, message):
-            if (sender, receiver) not in gains:
-                path = Transmission(message=message, sender=sender, receiver=receiver, start_time=0.0)
-                gains[sender, receiver] = abs(complex(self.channel.fading.coefficient(path, Link(sender, receiver)))) ** 2
-            return gains[sender, receiver]
-
-        results = [None] * len(transmissions)
-        heard, interference = [], []
-        for k, ((t, link), budget) in enumerate(zip(transmissions, budgets)):
-            if budget.transmit and self.half_duplex and t.receiver in emitted:
-                results[k] = self.channel._lost(t, link, budget, budget.snr_db, half_duplex=True)
-                continue
-            heard.append(k)
-            interference.append(sum(p * gain(s, t.receiver, t.message) for s, p in emitted.items()
-                                    if p > 0 and s not in (t.sender, t.receiver)))
-        if hasattr(self.channel, 'transmit_batch'):                 # one call of the error model for the step
-            out = self.channel.transmit_batch([transmissions[k] for k in heard], interference, [budgets[k] for k in heard])
-        else:
-            out = [self.channel.transmit(*transmissions[k], interference=i, budget=budgets[k]) for k, i in zip(heard, interference)]
-        for k, result in zip(heard, out):
-            results[k] = result
-        return results
+        return self.channel.run(self.pipeline, transmissions)
 
     def reset(self, seed: int | None = None) -> None:
         self.channel.reset(seed)
 
     def step(self, time: float) -> None:
         self.channel.update(time)
+
+    def set_positions(self, positions) -> None:
+        self.channel.set_positions(positions)

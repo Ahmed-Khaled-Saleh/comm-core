@@ -9,6 +9,12 @@ Docs: https://Ahmed-Khaled-Saleh.github.io/comm-core/init.html.md"""
 __all__ = []
 
 # %% ../nbs/init.ipynb #2f52ddfc
+from comm_core.block import (
+    Block,
+    Pipeline,
+    Named,
+)
+
 from comm_core.core import (
     Node,
     Message,
@@ -44,6 +50,9 @@ from comm_core.protocol import (
 from comm_core.backend import (
     CommunicationBackend,
     AnalyticalBackend,
+    PipelineBackend,
+    step_inputs,
+    to_results,
 )
 
 from .network import Network
@@ -56,6 +65,7 @@ from comm_core.propagation import (
     RayTracedPathsFading,
     GilbertElliottFading,
     grid_points,
+    effective_coefficient,
 )
 
 from comm_core.system import (
@@ -66,6 +76,7 @@ from comm_core.system import (
     ThresholdErrorModel,
     EESMErrorModel,
     eesm,
+    LinkAdaptation,
     PowerControl,
     FixedPower,
     ChannelInversion,
@@ -74,7 +85,10 @@ from comm_core.system import (
     MapChannelInversion,
     gain_windows,
     fit_gain_predictor,
-    LinkBudget,
+    SINR,
+    Decide,
+    Airtime,
+    Interference,
     RadioChannel,
     SystemLevelChannel,
     InterferenceBackend,
@@ -90,6 +104,7 @@ from comm_core.link import (
     BPSK,
     awgn,
     propagate,
+    BitLevelLink,
     LinkLevelChannel,
 )
 
@@ -97,7 +112,7 @@ from .sionna_rt import SionnaRTChannel, trace_paths
 
 from .sionna_sys import SionnaErrorModel
 
-from .sionna_phy import SionnaLinkChannel
+from .sionna_phy import SionnaLink, SionnaLinkChannel
 
 from comm_core.metrics import (
     CommunicationMetrics,
@@ -105,6 +120,10 @@ from comm_core.metrics import (
 )
 
 __all__ = [
+    "Block",
+    "Pipeline",
+    "Named",
+
     "Node",
     "Message",
     "Transmission",
@@ -131,6 +150,9 @@ __all__ = [
 
     "CommunicationBackend",
     "AnalyticalBackend",
+    "PipelineBackend",
+    "step_inputs",
+    "to_results",
 
     "Network",
 
@@ -141,6 +163,7 @@ __all__ = [
     "RayTracedPathsFading",
     "GilbertElliottFading",
     "grid_points",
+    "effective_coefficient",
 
     "bpsk_bit_error_rate",
     "packet_error_rate",
@@ -149,6 +172,7 @@ __all__ = [
     "ThresholdErrorModel",
     "EESMErrorModel",
     "eesm",
+    "LinkAdaptation",
     "PowerControl",
     "FixedPower",
     "ChannelInversion",
@@ -157,7 +181,10 @@ __all__ = [
     "MapChannelInversion",
     "gain_windows",
     "fit_gain_predictor",
-    "LinkBudget",
+    "SINR",
+    "Decide",
+    "Airtime",
+    "Interference",
     "RadioChannel",
     "SystemLevelChannel",
     "InterferenceBackend",
@@ -171,11 +198,13 @@ __all__ = [
     "BPSK",
     "awgn",
     "propagate",
+    "BitLevelLink",
     "LinkLevelChannel",
 
     "SionnaRTChannel",
     "trace_paths",
     "SionnaErrorModel",
+    "SionnaLink",
     "SionnaLinkChannel",
 
     "CommunicationMetrics",

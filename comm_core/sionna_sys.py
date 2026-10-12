@@ -8,12 +8,11 @@ Docs: https://Ahmed-Khaled-Saleh.github.io/comm-core/sionna_sys.html.md"""
 from __future__ import annotations
 
 import math
-from collections import defaultdict
 from typing import Sequence
 
 import numpy as np
 
-from .system import ErrorModel
+from .system import ErrorModel, LinkAdaptation
 
 # %% auto #0
 __all__ = ['MAX_CODERATE', 'nr_allocation', 'SionnaErrorModel']
@@ -66,6 +65,7 @@ class SionnaErrorModel(ErrorModel):
         self.eesm = EESM(precision=precision, device=device)
         self.device = self.phy.device
         self.dtype = torch.float64 if precision == 'double' else torch.float32
+        self.link_adaptation = LinkAdaptation(bler_target)      # over the candidate MCSs, slowest to fastest
         self.bler_target, self.mcs_table_index, self.mcs_category = bler_target, mcs_table_index, mcs_category
         decoder = MCSDecoderNR(device=self.device)
         valid = []
@@ -97,7 +97,16 @@ class SionnaErrorModel(ErrorModel):
             self._allocations[num_bits, i] = nr_allocation(num_bits, self.modulation_order[i], self.coderate[i])
         return self._allocations[num_bits, i]
 
-    def __call__(self, sinr, size_bits, groups=None):
+    @property
+    def bler_target(self) -> float:
+        "Link adaptation's target TBLER."
+        return self.link_adaptation.target
+
+    @bler_target.setter
+    def bler_target(self, value: float) -> None:
+        self.link_adaptation.target = value
+
+    def rate(self, sinr, size_bits, group=None):
         torch = self._torch
         n, width, M = len(sinr), max(len(s) for s in sinr), len(self.mcs)
         grid = np.zeros((n, width))                        # 0: a subcarrier the transmission does not use
@@ -113,16 +122,7 @@ class SionnaErrorModel(ErrorModel):
                          mcs_category=self.mcs_category, check_mcs_index_validity=False)[3]
         tbler = torch.nan_to_num(tbler, nan=1.0, posinf=1.0).clamp(0, 1)   # no table entry: lost
         if self.mcs_index is None:                          # the highest MCS meeting the target, else the lowest
-            ok = tbler <= self.bler_target
-            if groups is not None:                          # a broadcast's copies: an MCS meeting the target at all
-                copies = defaultdict(list)
-                for k, g in enumerate(groups):
-                    if g is not None:
-                        copies[g].append(k)
-                for ks in copies.values():
-                    ok[ks] = ok[ks].all(0)
-            best = torch.where(ok.any(1), (ok * torch.arange(M, device=self.device)).argmax(1),
-                               torch.zeros(n, dtype=torch.long, device=self.device))
+            best = self.link_adaptation(tbler, group)       # one per broadcast
         else:
             best = torch.zeros(n, dtype=torch.long, device=self.device)
         rows = torch.arange(n, device=self.device)

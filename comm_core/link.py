@@ -12,14 +12,15 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
+from .block import Block
 from .core import Message, Transmission, TransmissionResult
-from .propagation import Fading
-from .system import LinkBudget, PowerControl, RadioChannel, _is_torch
+from .propagation import Fading, effective_coefficient
+from .system import PowerControl, RadioChannel, _is_torch
 from .topology import Link
 
 # %% auto #0
 __all__ = ['to_bits', 'from_bits', 'Codec', 'IndexCodec', 'UniformQuantizer', 'Modulation', 'BPSK', 'awgn', 'propagate',
-           'LinkLevelChannel']
+           'BitLevelLink', 'LinkLevelChannel']
 
 # %% ../nbs/link.ipynb #6c8f6ee6
 def _arange(n: int, like):
@@ -181,6 +182,60 @@ def propagate(
     return signal + awgn(signal, noise_power, rng)
 
 # %% ../nbs/link.ipynb #7300dcd8
+class BitLevelLink(Block):
+    "Every bit of each transmission: payload -> bits -> symbols -> h √P x + n (interference as noise) -> detected bits -> payload."
+
+    outputs = ('success', 'payload', 'error_rate', 'num_bits', 'num_symbols', 'info')
+
+    def __init__(
+        self,
+        codec: Codec | None = None, # Payload <-> bits; None: `IndexCodec(256)`
+        modulation: Modulation | None = None, # Bits <-> symbols; None: `BPSK()`
+        drop_corrupted: bool = False, # Lose the packets with bit errors (a CRC) instead of delivering them
+    ):
+        self.codec = codec if codec is not None else IndexCodec()
+        self.modulation = modulation if modulation is not None else BPSK()
+        self.drop_corrupted = drop_corrupted
+
+    def call(
+        self,
+        transmission, # The transmissions (their payloads)
+        h: np.ndarray, # h of each at each subcarrier, (n, K) (several: their mean power)
+        power: np.ndarray, # Their transmit powers
+        sinr: np.ndarray, # Their SINR, (n, K)
+        noise_power: float, # Noise power at the receivers
+        interference: np.ndarray | None = None, # Power of the other transmissions at each receiver (added to the noise)
+        active: np.ndarray | None = None, # Whether each one is sent (None: all); the others only count their bits
+    ) -> tuple:
+        "(success, payload, error_rate, num_bits, num_symbols, info) of each transmission."
+        n = len(transmission)
+        success, payload, error = np.zeros(n, dtype=bool), [None] * n, np.ones(n)
+        num_bits, num_symbols, info = np.zeros(n, np.int64), np.zeros(n, np.int64), [{} for _ in range(n)]
+        per_symbol = self.modulation.bits_per_symbol
+        for k, t in enumerate(transmission):
+            bits = np.asarray(self.codec.encode(t.message.payload))
+            num_bits[k], num_symbols[k] = bits.size, -(-int(bits.size) // per_symbol)
+            if active is not None and not active[k]:
+                continue
+            if np.isinf(h[k]).any():                     # same place: a perfect link
+                success[k], payload[k], error[k], num_symbols[k], info[k] = True, t.message.payload, 0.0, 0, {'bit_errors': 0}
+                continue
+            if not np.mean(sinr[k]) > 0:                 # drowned (e.g. an interferer at the receiver's place)
+                continue
+            last = int(bits.shape[-1])
+            padded = np.pad(bits, [(0, 0)] * (bits.ndim - 1) + [(0, -last % per_symbol)])
+            symbols = self.modulation.modulate(padded)
+            coefficient = effective_coefficient(h[k])
+            noise = noise_power + (float(interference[k]) if interference is not None else 0.0)   # interference as noise
+            received = propagate(symbols, coefficient, float(power[k]), noise, self.rng)
+            detected = np.asarray(self.modulation.demodulate(received, coefficient))[..., :last]
+            bit_errors = int((detected != bits).sum())
+            success[k] = not (self.drop_corrupted and bit_errors)
+            payload[k] = self.codec.decode(detected) if success[k] else None
+            error[k], num_symbols[k], info[k] = bit_errors / max(int(bits.size), 1), int(np.size(symbols)), {'bit_errors': bit_errors}
+        return success, payload, error, num_bits, num_symbols, info
+
+
 class LinkLevelChannel(RadioChannel):
     "Every bit simulated: payload -> bits -> symbols -> h √P x + n -> detected bits -> payload (with its bit errors)."
 
@@ -194,57 +249,17 @@ class LinkLevelChannel(RadioChannel):
         drop_corrupted: bool = False, # Lose the packets with bit errors (a CRC) instead of delivering them
         seed: int | None = None, # Seed of the noise and the fading
     ):
-        self.codec = codec if codec is not None else IndexCodec()
-        self.modulation = modulation if modulation is not None else BPSK()
-        self.drop_corrupted = drop_corrupted
+        self.link_level = BitLevelLink(codec, modulation, drop_corrupted)
         super().__init__(fading, power_control, noise_power, seed)
 
-    def transmit(
-        self,
-        transmission: Transmission,
-        link: Link,
-        interference: float = 0.0, # Power of the other transmissions at the receiver (see `InterferenceBackend`)
-        budget: LinkBudget | None = None, # The transmission's link budget, if already computed
-    ) -> TransmissionResult:
+    @property
+    def codec(self) -> Codec:
+        return self.link_level.codec
 
-        if budget is None:
-            budget = self.link_budget(transmission, link)
-        if not budget.transmit:
-            return self._outage(transmission, budget)
-        sinr_db = self._sinr_db(budget, interference)
-        extra = {'interference_power': interference} if interference else {}
-        if sinr_db == -math.inf:                         # drowned (e.g. an interferer at the receiver's place)
-            return self._lost(transmission, link, budget, sinr_db, **extra)
-        message = transmission.message
-        bits = np.asarray(self.codec.encode(message.payload))
-        num_bits = int(bits.shape[-1])
-        if budget.snr_db == math.inf:                    # same place: a perfect link
-            return TransmissionResult(success=True, transmission=transmission, payload=message.payload,
-                                      size_bits=int(bits.size), snr_db=math.inf, error_rate=0.0,
-                                      metadata=self._metadata(budget, bit_errors=0))
+    @property
+    def modulation(self) -> Modulation:
+        return self.link_level.modulation
 
-        k = self.modulation.bits_per_symbol
-        padded = np.pad(bits, [(0, 0)] * (bits.ndim - 1) + [(0, -num_bits % k)])
-        symbols = self.modulation.modulate(padded)
-        received = propagate(symbols, budget.h, budget.power, self.noise_power + interference, self.rng)  # interference as noise
-        detected = np.asarray(self.modulation.demodulate(received, budget.h))[..., :num_bits]
-        bit_errors = int((detected != bits).sum())
-        success = not (self.drop_corrupted and bit_errors)
-        latency, energy = self._timing(budget, int(np.size(symbols)), link)
-        return TransmissionResult(
-            success=success,
-            transmission=transmission,
-            payload=self.codec.decode(detected) if success else None,
-            latency=latency,
-            size_bits=int(bits.size),
-            energy=energy,
-            snr_db=sinr_db,
-            error_rate=bit_errors / max(int(bits.size), 1),
-            metadata=self._metadata(budget, bit_errors=bit_errors, **extra),
-        )
-
-    def _num_bits(self, message: Message) -> int:
-        return int(np.size(self.codec.encode(message.payload)))
-
-    def _num_symbols(self, num_bits: int) -> int:
-        return -(-num_bits // self.modulation.bits_per_symbol)
+    def receiver(self) -> list:
+        "The bits: `BitLevelLink`."
+        return [self.link_level]

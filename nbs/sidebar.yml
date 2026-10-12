@@ -20,6 +20,7 @@ website:
           - topology.ipynb
           - channel.ipynb
           - protocol.ipynb
+          - block.ipynb
           - backend.ipynb
           - network.ipynb
           - metrics.ipynb
