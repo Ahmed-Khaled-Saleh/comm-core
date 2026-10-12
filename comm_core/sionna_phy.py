@@ -18,7 +18,8 @@ from .core import Message, Transmission, TransmissionResult
 from .link import Codec, IndexCodec
 from .propagation import Fading
 from .sionna_sys import SionnaErrorModel
-from .system import PowerControl, RadioChannel
+from .power_control import PowerControl
+from .radio import RadioChannel
 from .topology import Link
 
 # %% auto #0

@@ -12,7 +12,8 @@ from typing import Sequence
 
 import numpy as np
 
-from .system import ErrorModel, LinkAdaptation
+from .link_adaptation import LinkAdaptation
+from .phy_abstraction import ErrorModel
 
 # %% auto #0
 __all__ = ['MAX_CODERATE', 'nr_allocation', 'SionnaErrorModel']

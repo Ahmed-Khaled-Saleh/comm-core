@@ -68,15 +68,7 @@ from comm_core.propagation import (
     effective_coefficient,
 )
 
-from comm_core.system import (
-    bpsk_bit_error_rate,
-    packet_error_rate,
-    ErrorModel,
-    BPSKErrorModel,
-    ThresholdErrorModel,
-    EESMErrorModel,
-    eesm,
-    LinkAdaptation,
+from comm_core.power_control import (
     PowerControl,
     FixedPower,
     ChannelInversion,
@@ -85,14 +77,33 @@ from comm_core.system import (
     MapChannelInversion,
     gain_windows,
     fit_gain_predictor,
-    SINR,
-    Decide,
-    Airtime,
+)
+
+from comm_core.interference import (
     Interference,
+    SINR,
+)
+
+from comm_core.phy_abstraction import (
+    bpsk_bit_error_rate,
+    packet_error_rate,
+    ErrorModel,
+    BPSKErrorModel,
+    ThresholdErrorModel,
+    EESMErrorModel,
+    eesm,
+    Decide,
+)
+
+from .link_adaptation import LinkAdaptation
+
+from comm_core.radio import (
+    Airtime,
     RadioChannel,
-    SystemLevelChannel,
     InterferenceBackend,
 )
+
+from .system import SystemLevelChannel
 
 from comm_core.link import (
     to_bits,
