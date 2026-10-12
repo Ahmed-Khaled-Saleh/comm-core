@@ -45,8 +45,9 @@ class PowerControl(Block, ABC):
         noise_power: float, # Noise power at the receivers
         link: Sequence[Link], # Their links
         transmission: Sequence[Transmission] | None = None, # The transmissions (for their messages)
+        group: Sequence | None = None, # The broadcast of each transmission, None for a unicast (None: all unicasts)
     ) -> Tuple[np.ndarray, np.ndarray]:
-        "(power, active) of each transmission: `allocate`, one by one; a disabled link is not active."
+        "(power, active) of each transmission: `allocate`, one by one, then one power per broadcast; a disabled link is not active."
         n = len(link)
         power, active = np.zeros(n), np.zeros(n, dtype=bool)
         for k in range(n):
@@ -57,6 +58,17 @@ class PowerControl(Block, ABC):
             message = transmission[k].message if transmission is not None else None
             p, ok = self.allocate(abs(coefficient) ** 2, noise_power, link=link[k], message=message)
             power[k], active[k] = float(p), bool(ok) and link[k].enabled
+        emissions = {}                                     # a broadcast's copies: one signal, at one power
+        for k, g in enumerate(group if group is not None else ()):
+            if g is not None:
+                emissions.setdefault(g, []).append(k)
+        for rows in emissions.values():
+            sent = [k for k in rows if active[k]]
+            if not sent:                                   # no copy would be sent: the broadcast is not
+                continue
+            p = max(power[k] for k in sent)                # what its weakest neighbour within the budget needs
+            for k in rows:
+                power[k], active[k] = p, link[k].enabled and (active[k] or p > 0)
         return power, active
 
 
