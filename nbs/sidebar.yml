@@ -15,6 +15,7 @@ website:
           - examples/07_power_across_layouts.ipynb
           - examples/08_map_mismatch.ipynb
           - examples/09_c3wm_blocks.ipynb
+          - examples/10_uav_ohjb.ipynb
       - section: Core
         contents:
           - 00_core.ipynb
