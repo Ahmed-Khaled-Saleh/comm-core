@@ -18,7 +18,7 @@ classifiers = [
 dependencies = ["numpy"]
 
 [project.optional-dependencies]
-dev = ["matplotlib", "scikit-learn", "scipy"]   # the examples' plots, their learned predictors, and an LQR
+dev = ["matplotlib", "scikit-learn", "scipy", "nbdev"]   # the examples' plots, their learned predictors, an LQR; nbdev-test
 sionna = ["sionna>=2.2"]   # comm_core.sionna_sys (Sionna SYS, PyTorch); trace_paths needs Sionna RT (sionna-rt)
 
 [project.urls]
