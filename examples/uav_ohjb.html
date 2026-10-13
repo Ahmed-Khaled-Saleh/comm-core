@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.19">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="The communication model of opportunistic HJB control (oHJB) of a UAV from a base station, as a pipeline of comm-core blocks: aerial path loss, Shannon delays against a deadline, and a power boost when the deadline is at risk.">
+
+<title>Remote UAV control, built from blocks – comm-core</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-bf27225e3a48a9273f3daa8f8e829971.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-f2788e636de456f6409e966386820849.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="../styles.css">
+<meta property="og:title" content="Remote UAV control, built from blocks – comm-core">
+<meta property="og:description" content="The communication model of opportunistic HJB control (oHJB) of a UAV from a base station, as a pipeline of comm-core blocks: aerial path loss, Shannon delays against a deadline, and a power boost when the deadline is at risk.">
+<meta property="og:image" content="https://Ahmed-Khaled-Saleh.github.io/comm-core/examples/10_uav_ohjb_files/figure-html/cell-9-output-1.png">
+<meta property="og:site_name" content="comm-core">
+<meta property="og:image:height" content="370">
+<meta property="og:image:width" content="790">
+<meta name="twitter:title" content="Remote UAV control, built from blocks – comm-core">
+<meta name="twitter:description" content="The communication model of opportunistic HJB control (oHJB) of a UAV from a base station, as a pipeline of comm-core blocks: aerial path loss, Shannon delays against a deadline, and a power boost when the deadline is at risk.">
+<meta name="twitter:image" content="https://Ahmed-Khaled-Saleh.github.io/comm-core/examples/10_uav_ohjb_files/figure-html/cell-9-output-1.png">
+<meta name="twitter:image-height" content="370">
+<meta name="twitter:image-width" content="790">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+
+<body class="nav-sidebar floating nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">comm-core</span>
+    </a>
+  </div>
+        <div class="quarto-navbar-tools tools-end">
+</div>
+          <div id="quarto-search" class="" title="Search"></div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../examples/sharing.html">Examples</a></li><li class="breadcrumb-item"><a href="../examples/uav_ohjb.html">Remote UAV control, built from blocks</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">comm-core</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../principles.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Design principles</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../design.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Architecture</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Examples</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../examples/sharing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Agents sharing what they see</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../examples/medium_access.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Medium access and interference</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../examples/continuous_positions.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Channels at continuous positions</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../examples/fidelity.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Levels of fidelity</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../examples/robot_control.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Robot control over Wi-Fi</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../examples/predicted_power.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Power control without channel knowledge</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../examples/power_across_layouts.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Power control on new layouts</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../examples/map_mismatch.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">When the radio map is wrong</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../examples/c3wm_blocks.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">C3-WM’s link, built from blocks</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../examples/uav_ohjb.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Remote UAV control, built from blocks</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true">
+ <span class="menu-text">Core</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../core.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Core</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../topology.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Topology</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../channel.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Channel</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../protocol.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Protocol</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../block.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Blocks</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../backend.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Backend</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../network.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Network</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../metrics.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Metrics</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../init.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Public API</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true">
+ <span class="menu-text">Radio</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../propagation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Propagation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../power_control.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Power control</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../interference.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Interference</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../phy_abstraction.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">PHY abstraction</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../link_adaptation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Link adaptation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../radio.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Radio channels</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../system.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">System-level simulation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../link.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Link-level simulation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../sionna_rt.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Sionna RT channel</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../sionna_sys.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Sionna SYS</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../sionna_phy.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Sionna PHY</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#settings" id="toc-settings" class="nav-link active" data-scroll-target="#settings">Settings</a></li>
+  <li><a href="#the-blocks" id="toc-the-blocks" class="nav-link" data-scroll-target="#the-blocks">The blocks</a></li>
+  <li><a href="#the-pipeline" id="toc-the-pipeline" class="nav-link" data-scroll-target="#the-pipeline">The pipeline</a></li>
+  <li><a href="#the-link-along-the-way" id="toc-the-link-along-the-way" class="nav-link" data-scroll-target="#the-link-along-the-way">The link along the way</a></li>
+  <li><a href="#the-controller" id="toc-the-controller" class="nav-link" data-scroll-target="#the-controller">The controller</a></li>
+  <li><a href="#the-rounds" id="toc-the-rounds" class="nav-link" data-scroll-target="#the-rounds">The rounds</a></li>
+  <li><a href="#at-the-papers-distance" id="toc-at-the-papers-distance" class="nav-link" data-scroll-target="#at-the-papers-distance">At the paper’s distance</a></li>
+  <li><a href="#farther-from-the-base-station" id="toc-farther-from-the-base-station" class="nav-link" data-scroll-target="#farther-from-the-base-station">Farther from the base station</a></li>
+  </ul>
+<div class="toc-actions"><ul><li><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div><div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="uav_ohjb.html.md"><i class="bi bi-file-code"></i>Markdown</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../examples/sharing.html">Examples</a></li><li class="breadcrumb-item"><a href="../examples/uav_ohjb.html">Remote UAV control, built from blocks</a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title">Remote UAV control, built from blocks</h1>
+</div>
+
+<div>
+  <div class="description">
+    The communication model of opportunistic HJB control (oHJB) of a UAV from a base station, as a pipeline of comm-core blocks: aerial path loss, Shannon delays against a deadline, and a power boost when the deadline is at risk.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<!-- WARNING: THIS FILE WAS AUTOGENERATED! DO NOT EDIT! -->
+<p>In oHJB (Shiri, Park and Bennis, <em>Remote UAV Online Path Planning via Neural Network Based Opportunistic Control</em>), a base station (BS) steers a UAV to a destination. In each control round <code>k</code>, the UAV sends its state, the BS updates its controller with it and sends back either an <strong>action</strong> (aHJB) or the <strong>controller itself</strong> (mHJB), which the UAV then runs on its own. oHJB sends actions first and switches to the controller once it has seen enough states and the link has become slow.</p>
+<p>The communication model (Section III-A) is a chain of steps, and each one is a comm-core block (see <code>block</code>). Built as a <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/backend.html#pipelinebackend"><code>PipelineBackend</code></a>, each step can be replaced on its own:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>oHJB</th>
+<th></th>
+<th>block</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>the path loss: 3GPP’s aerial model, line of sight drawn with its probability, constant during a round and independent across rounds</td>
+<td>eqs. 11–12</td>
+<td><code>UAVPathLoss</code> (a <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/propagation.html#fading"><code>Fading</code></a>)</td>
+</tr>
+<tr class="even">
+<td>the power: 20 dBm at the UAV; 23 dBm at the BS, 26 dBm when 23 would miss the deadline</td>
+<td>eq. 13</td>
+<td><code>DeadlinePower</code> (a <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/power_control.html#powercontrol"><code>PowerControl</code></a>), or <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/power_control.html#fixedpower"><code>FixedPower</code></a></td>
+</tr>
+<tr class="odd">
+<td>the SNR, <code>P · 10^(−L/10) / (N W)</code></td>
+<td>eq. 10</td>
+<td><a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/interference.html#sinr"><code>SINR</code></a></td>
+</tr>
+<tr class="even">
+<td>the delay, <code>b / (W log₂(1 + SNR))</code></td>
+<td>eq. 10</td>
+<td><code>Capacity</code> → <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/radio.html#airtime"><code>Airtime</code></a></td>
+</tr>
+<tr class="odd">
+<td>the deadline: the round’s state and reply arrive within <code>D_th</code> of the state’s measurement, or not at all</td>
+<td>Sec. III-A</td>
+<td><code>Deadline</code></td>
+</tr>
+<tr class="even">
+<td>the payloads: a state is <code>4b</code> bits, an action <code>2b</code>, the controller <code>Mb</code></td>
+<td>Sec. III-B</td>
+<td>the messages’ <code>size_bits</code></td>
+</tr>
+<tr class="odd">
+<td>the rounds of Algorithms 1–3</td>
+<td>Sec. III</td>
+<td>the application: a loop around a <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/network.html#network"><code>Network</code></a></td>
+</tr>
+</tbody>
+</table>
+<p>The paper’s names follow the BS: the <em>downlink</em> (DL) is the UAV sending its state to the BS (the BS downloads it), and the <em>uplink</em> (UL) is the BS sending back an action or the controller (uploading it).</p>
+<p><strong>What is not the paper’s: the controller.</strong> The paper’s HJB NN (eqs. 7–9) is a 54-weight polynomial model trained at each received state. Its features are sixth powers of positions in metres, and the paper doesn’t say how they are scaled, so it can’t be rebuilt as written. It is replaced by the exact solution of the HJB equation for the quadratic part of the cost (eq. 1 without its first term), whose value function is quadratic: the LQR. It is reached one update per received state, which plays the same role as the paper’s training:</p>
+<ul>
+<li>the controller starts untrained and improves with every state the BS receives;</li>
+<li>it is still <code>M = 54</code> weights of <code>b</code> bits on the air, as in the paper.</li>
+</ul>
+<p>Three other choices aren’t the paper’s: * <strong>Acceleration limit.</strong> Accelerations are limited to 1 m/s², which gives at most 10 m/s against the drag. The paper’s Fig. 2 stays under 8 m/s. * <strong>Mission end.</strong> The mission ends when the UAV is within 2 m of the destination at under 0.5 m/s. The paper doesn’t give <code>r_th</code> or <code>v_th</code>. * <strong>Distance.</strong> The distance <code>d</code> in eqs. 11–12 is the 3-D distance. With <code>d = ‖r − r_s‖</code>, as written, it would be 0 at the start, and eq. 12’s <code>√(d² − h²)</code> shows <code>d</code> includes the altitude.</p>
+<div id="052f64db" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> math</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> collections <span class="im">import</span> deque</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scipy.linalg <span class="im">import</span> solve_continuous_are</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> comm_core <span class="im">import</span> <span class="op">*</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<section id="settings" class="level2">
+<h2 class="anchored" data-anchor-id="settings">Settings</h2>
+<p>As in the paper’s Section IV. Powers are in watts, and the noise power is the noise density over the bandwidth.</p>
+<div id="0cdb84a1" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>dBm <span class="op">=</span> <span class="kw">lambda</span> x: <span class="dv">10</span> <span class="op">**</span> ((x <span class="op">-</span> <span class="dv">30</span>) <span class="op">/</span> <span class="dv">10</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>BS <span class="op">=</span> np.array([<span class="fl">150.0</span>, <span class="fl">100.0</span>])                 <span class="co"># the BS, and the UAV's start (r_s); the destination is the origin</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>ALTITUDE, FC_GHZ, W <span class="op">=</span> <span class="fl">30.0</span>, <span class="fl">2.0</span>, <span class="fl">2e6</span>          <span class="co"># h (m), carrier (GHz), bandwidth (Hz)</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>NOISE_W <span class="op">=</span> dBm(<span class="op">-</span><span class="dv">118</span>) <span class="op">*</span> W                       <span class="co"># N_i W</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>P_DL, P_UL, P_UL_MAX <span class="op">=</span> dBm(<span class="dv">20</span>), dBm(<span class="dv">23</span>), dBm(<span class="dv">26</span>)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>b, M_WEIGHTS <span class="op">=</span> <span class="dv">80</span>, <span class="dv">54</span>                         <span class="co"># 10 bytes per number; the controller's weights</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>B_STATE, B_ACTION, B_MODEL <span class="op">=</span> <span class="dv">4</span> <span class="op">*</span> b, <span class="dv">2</span> <span class="op">*</span> b, M_WEIGHTS <span class="op">*</span> b</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>D_TH, ALPHA, N_AVG, DN_TH <span class="op">=</span> <span class="fl">2.0</span>, <span class="fl">0.2</span>, <span class="dv">5</span>, <span class="dv">50</span>   <span class="co"># deadline (s), oHJB's switching rule</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>C0, C1, C2, C3 <span class="op">=</span> <span class="fl">0.1</span>, <span class="fl">0.015</span>, <span class="fl">0.015</span>, <span class="fl">0.005</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>V_O, V_NOISE, DT <span class="op">=</span> np.array([<span class="fl">1.0</span>, <span class="op">-</span><span class="fl">1.0</span>]), <span class="fl">0.1</span>, <span class="fl">0.1</span>   <span class="co"># mean wind (m/s), its perturbation, the time step (s)</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>A_MAX, R_TH, V_TH <span class="op">=</span> <span class="fl">1.0</span>, <span class="fl">2.0</span>, <span class="fl">0.5</span>             <span class="co"># not in the paper (see above)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="the-blocks" class="level2">
+<h2 class="anchored" data-anchor-id="the-blocks">The blocks</h2>
+<p><strong><code>UAVPathLoss</code></strong> is a <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/propagation.html#fading"><code>Fading</code></a>: it gives each transmission its coefficient <code>h = 10^(−L/20)</code>, with <code>L</code> from eq. 11. Line of sight is drawn with eq. 12’s probability once per round, so that the round’s state and reply see the same <code>L</code> (the paper’s fully correlated downlink and uplink). The round is the message’s <code>metadata['control']</code>, and the UAV’s position comes from <code>set_positions</code>, as for any fading that depends on where the nodes are. Its draws use the block’s <code>rng</code>, which the network reseeds with every episode.</p>
+<div id="cd229f28" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> UAVPathLoss(Fading):</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"3GPP TR 36.777's path loss between a ground BS and a UAV (eqs. 11–12): line of sight drawn once per round."</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, bs, altitude, fc_ghz):</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.bs, <span class="va">self</span>.altitude, <span class="va">self</span>.fc_ghz <span class="op">=</span> np.asarray(bs, <span class="bu">float</span>), altitude, fc_ghz</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.positions, <span class="va">self</span>._rounds <span class="op">=</span> {}, {}</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> reset(<span class="va">self</span>, seed<span class="op">=</span><span class="va">None</span>):</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">super</span>().reset(seed)</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>._rounds <span class="op">=</span> {}                                         <span class="co"># round -&gt; L (dB)</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> set_positions(<span class="va">self</span>, positions):</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.positions.update(positions)</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> p_los(<span class="va">self</span>, horizontal):</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        <span class="co">"Eq. 12, with the horizontal distance √(d² − h²)."</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>        lh <span class="op">=</span> math.log10(<span class="va">self</span>.altitude)</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        d_o, p_o <span class="op">=</span> <span class="bu">max</span>(<span class="fl">294.05</span> <span class="op">*</span> lh <span class="op">-</span> <span class="fl">432.94</span>, <span class="fl">18.0</span>), <span class="fl">233.98</span> <span class="op">*</span> lh <span class="op">-</span> <span class="fl">0.95</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> horizontal <span class="op">&lt;=</span> d_o:</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> <span class="fl">1.0</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> d_o <span class="op">/</span> horizontal <span class="op">+</span> math.exp(<span class="op">-</span>horizontal <span class="op">/</span> p_o) <span class="op">*</span> (<span class="dv">1</span> <span class="op">-</span> d_o <span class="op">/</span> horizontal)</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> path_loss_db(<span class="va">self</span>, d, los):</span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>        <span class="co">"Eq. 11 at the 3-D distance d."</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>        lh, f <span class="op">=</span> math.log10(<span class="va">self</span>.altitude), <span class="dv">20</span> <span class="op">*</span> math.log10(<span class="va">self</span>.fc_ghz)</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>        l_los <span class="op">=</span> <span class="fl">30.9</span> <span class="op">+</span> (<span class="fl">22.25</span> <span class="op">-</span> <span class="fl">0.5</span> <span class="op">*</span> lh) <span class="op">*</span> math.log10(d) <span class="op">+</span> f</span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> l_los <span class="cf">if</span> los <span class="cf">else</span> <span class="bu">max</span>(l_los, <span class="fl">32.4</span> <span class="op">+</span> (<span class="fl">43.2</span> <span class="op">-</span> <span class="fl">7.6</span> <span class="op">*</span> lh) <span class="op">*</span> math.log10(d) <span class="op">+</span> f)</span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> coefficient(<span class="va">self</span>, transmission, link):</span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>        k <span class="op">=</span> transmission.message.metadata[<span class="st">'control'</span>]</span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> k <span class="kw">not</span> <span class="kw">in</span> <span class="va">self</span>._rounds:</span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>            horizontal <span class="op">=</span> <span class="bu">float</span>(np.linalg.norm(np.asarray(<span class="va">self</span>.positions[<span class="st">'uav'</span>], <span class="bu">float</span>) <span class="op">-</span> <span class="va">self</span>.bs))</span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>            los <span class="op">=</span> <span class="va">self</span>.rng.random() <span class="op">&lt;</span> <span class="va">self</span>.p_los(horizontal)</span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>._rounds[k] <span class="op">=</span> <span class="va">self</span>.path_loss_db(math.hypot(horizontal, <span class="va">self</span>.altitude), los)</span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dv">10</span> <span class="op">**</span> (<span class="op">-</span><span class="va">self</span>._rounds[k] <span class="op">/</span> <span class="dv">20</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p><strong><code>DeadlinePower</code></strong> is eq. 13. A power control is given each transmission’s <code>|h|²</code>, link and message (see <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/power_control.html#powercontrol"><code>PowerControl</code></a>). It sends at the link’s power, unless the delay at that power would exceed the time left (<code>metadata['deadline']</code>, which is <code>D_th − D_DL</code> for the BS’s reply); then it sends at <code>max_power</code>. Only the BS does this.</p>
+<p><strong><code>Capacity</code></strong> gives the symbols a message takes at the Shannon rate: <code>b / log₂(1 + SNR)</code>. <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/radio.html#airtime"><code>Airtime</code></a>, the library’s block, turns symbols into time on the air (symbols / bandwidth) and energy (power × time). Together they are eq. 10.</p>
+<p><strong><code>Deadline</code></strong> says what arrives: a message whose delay is within its time left. A late one is cut off at its deadline, so its energy is only that of the time it was on the air.</p>
+<div id="51492e0b" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> DeadlinePower(PowerControl):</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"Eq. 13: the link's power, or `max_power` if the delay at the link's power would miss the deadline (the BS only)."</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, max_power, senders<span class="op">=</span>(<span class="st">'bs'</span>,)):</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.max_power, <span class="va">self</span>.senders <span class="op">=</span> max_power, senders</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> allocate(<span class="va">self</span>, gain, noise_power, link<span class="op">=</span><span class="va">None</span>, message<span class="op">=</span><span class="va">None</span>):</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        p <span class="op">=</span> link.tx_power_w</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> link.sender <span class="kw">in</span> <span class="va">self</span>.senders:</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>            expected <span class="op">=</span> message.size_bits <span class="op">/</span> (link.bandwidth_hz <span class="op">*</span> math.log2(<span class="dv">1</span> <span class="op">+</span> p <span class="op">*</span> gain <span class="op">/</span> noise_power))</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> expected <span class="op">&gt;</span> message.metadata[<span class="st">'deadline'</span>]:</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>                p <span class="op">=</span> <span class="va">self</span>.max_power</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> p, <span class="va">True</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Capacity(Block):</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">"Symbols to send each message at the Shannon rate: size_bits / log2(1 + SNR)."</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    outputs <span class="op">=</span> (<span class="st">'num_symbols'</span>,)</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> call(<span class="va">self</span>, size_bits, sinr):</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">with</span> np.errstate(divide<span class="op">=</span><span class="st">'ignore'</span>):</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>            symbols <span class="op">=</span> np.ceil(np.asarray(size_bits, <span class="bu">float</span>) <span class="op">/</span> np.log2(<span class="dv">1</span> <span class="op">+</span> np.asarray(sinr).mean(<span class="dv">1</span>)))</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> np.minimum(symbols, <span class="fl">1e18</span>)                          <span class="co"># no rate at all: as good as never</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Deadline(Block):</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>    <span class="co">"A message arrives if its delay is within the time it has left (`metadata['deadline']`); a late one is cut off then."</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>    outputs <span class="op">=</span> (<span class="st">'success'</span>, <span class="st">'energy'</span>)</span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> call(<span class="va">self</span>, transmission, latency, energy):</span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>        left <span class="op">=</span> np.array([t.message.metadata[<span class="st">'deadline'</span>] <span class="cf">for</span> t <span class="kw">in</span> transmission])</span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>        latency <span class="op">=</span> np.asarray(latency, <span class="bu">float</span>)</span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>        <span class="cf">with</span> np.errstate(invalid<span class="op">=</span><span class="st">'ignore'</span>):</span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>            sent <span class="op">=</span> np.where(latency <span class="op">&gt;</span> left, np.maximum(left, <span class="dv">0</span>) <span class="op">/</span> latency, <span class="fl">1.0</span>)   <span class="co"># the share of it on the air</span></span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> latency <span class="op">&lt;=</span> left, np.asarray(energy) <span class="op">*</span> sent</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="the-pipeline" class="level2">
+<h2 class="anchored" data-anchor-id="the-pipeline">The pipeline</h2>
+<p>The blocks in order, with the library’s <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/interference.html#sinr"><code>SINR</code></a> and <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/radio.html#airtime"><code>Airtime</code></a> between them. The topology has one link per direction, each with its bandwidth and power:</p>
+<div id="34b57812" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> radio(power_control, bs<span class="op">=</span>BS):</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"The communication model of oHJB, as blocks."</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [UAVPathLoss(bs, ALTITUDE, FC_GHZ), power_control, SINR(), Capacity(), Airtime(), Deadline()]</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>UAV_BS <span class="op">=</span> Link(<span class="st">'uav'</span>, <span class="st">'bs'</span>, bandwidth_hz<span class="op">=</span>W, tx_power_w<span class="op">=</span>P_DL)          <span class="co"># the paper's downlink: the state</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>BS_UAV <span class="op">=</span> Link(<span class="st">'bs'</span>, <span class="st">'uav'</span>, bandwidth_hz<span class="op">=</span>W, tx_power_w<span class="op">=</span>P_UL)          <span class="co"># the paper's uplink: an action or the model</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>TOPOLOGY <span class="op">=</span> GraphTopology([UAV_BS, BS_UAV])</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>backend <span class="op">=</span> PipelineBackend(radio(DeadlinePower(P_UL_MAX)), noise_power<span class="op">=</span>NOISE_W)</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">' → '</span>.join(<span class="bu">type</span>(block).<span class="va">__name__</span> <span class="cf">for</span> block <span class="kw">in</span> backend.pipeline))</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'inputs:'</span>, backend.pipeline.required)</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">'outputs:'</span>, backend.pipeline.outputs)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>UAVPathLoss → DeadlinePower → SINR → Capacity → Airtime → Deadline
+inputs: ('transmission', 'link', 'sender', 'receiver', 'size_bits', 'group', 'noise_power')
+outputs: ('h', 'power', 'active', 'sinr', 'num_symbols', 'latency', 'energy', 'success')</code></pre>
+</div>
+</div>
+<p><a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/backend.html#pipelinebackend"><code>PipelineBackend</code></a> checks the wiring when it is built. Every input a block needs is either one of the step’s inputs (<code>transmission</code>, <code>link</code>, <code>size_bits</code>, …), the constant <code>noise_power</code>, or given by a block before it.</p>
+<p>A check against eq. 10 by hand: a state sent from 100 m in line of sight, through the pipeline.</p>
+<div id="299f2bfb" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> message(sender, receiver, size_bits, k, deadline<span class="op">=</span>D_TH):</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> Message(sender, receiver, <span class="va">None</span>, size_bits<span class="op">=</span>size_bits, metadata<span class="op">=</span>{<span class="st">'control'</span>: k, <span class="st">'deadline'</span>: deadline})</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> rows(messages):</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [(Transmission(m, m.sender, m.receiver, <span class="fl">0.0</span>), TOPOLOGY.get_link(m.sender, m.receiver)) <span class="cf">for</span> m <span class="kw">in</span> messages]</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>pl <span class="op">=</span> UAVPathLoss(BS, ALTITUDE, FC_GHZ)</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> pl.p_los(<span class="fl">10.0</span>) <span class="op">==</span> <span class="fl">1.0</span> <span class="kw">and</span> <span class="dv">0</span> <span class="op">&lt;</span> pl.p_los(<span class="fl">300.0</span>) <span class="op">&lt;</span> <span class="dv">1</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>backend.set_positions({<span class="st">'uav'</span>: BS <span class="op">+</span> [<span class="fl">100.0</span>, <span class="fl">0.0</span>]})                     <span class="co"># p_LOS = 0.79: draw until a round is in LOS</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>backend.reset(seed<span class="op">=</span><span class="dv">0</span>)</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>k <span class="op">=</span> <span class="bu">next</span>(k <span class="cf">for</span> k <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">100</span>) <span class="cf">if</span> (state <span class="op">:=</span> backend.pipeline(<span class="op">**</span>step_inputs(rows([message(<span class="st">'uav'</span>, <span class="st">'bs'</span>, B_STATE, k)])),</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>                                                             noise_power<span class="op">=</span>NOISE_W))[<span class="st">'h'</span>][<span class="dv">0</span>, <span class="dv">0</span>] <span class="op">**</span> <span class="dv">2</span> <span class="op">&gt;</span> <span class="dv">10</span> <span class="op">**</span> (<span class="op">-</span><span class="fl">8.5</span>))</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>L <span class="op">=</span> pl.path_loss_db(math.hypot(<span class="fl">100.0</span>, ALTITUDE), los<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>expected <span class="op">=</span> B_STATE <span class="op">/</span> (W <span class="op">*</span> math.log2(<span class="dv">1</span> <span class="op">+</span> P_DL <span class="op">*</span> <span class="dv">10</span> <span class="op">**</span> (<span class="op">-</span>L <span class="op">/</span> <span class="dv">10</span>) <span class="op">/</span> NOISE_W))</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="bu">abs</span>(state[<span class="st">'latency'</span>][<span class="dv">0</span>] <span class="op">-</span> expected) <span class="op">&lt;</span> <span class="dv">1</span> <span class="op">/</span> W <span class="kw">and</span> state[<span class="st">'success'</span>][<span class="dv">0</span>]</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f'L = </span><span class="sc">{</span>L<span class="sc">:.1f}</span><span class="ss"> dB, SNR = </span><span class="sc">{</span><span class="dv">10</span> <span class="op">*</span> math<span class="sc">.</span>log10(state[<span class="st">"sinr"</span>][<span class="dv">0</span>, <span class="dv">0</span>])<span class="sc">:.1f}</span><span class="ss"> dB, the state takes </span><span class="sc">{</span><span class="fl">1e3</span> <span class="op">*</span> expected<span class="sc">:.2f}</span><span class="ss"> ms'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>L = 80.3 dB, SNR = -5.4 dB, the state takes 0.43 ms</code></pre>
+</div>
+</div>
+</section>
+<section id="the-link-along-the-way" class="level2">
+<h2 class="anchored" data-anchor-id="the-link-along-the-way">The link along the way</h2>
+<p>How often a round completes (the state and the reply both arrive within <code>D_th</code>) depends on how far the UAV is from the BS and on what the BS sends back. With the pipeline alone, without a network or a UAV: 400 rounds at each distance, each state sent in one call of the blocks, then the replies with the time each has left. The replies use the same rounds, and so the same draws of line of sight.</p>
+<div id="fde05e3c" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> completes(power_control, distance, n<span class="op">=</span><span class="dv">400</span>, seed<span class="op">=</span><span class="dv">0</span>):</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"Share of n rounds at `distance` (m, horizontal) whose state and reply both arrive in time, per kind of reply."</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    backend <span class="op">=</span> PipelineBackend(radio(power_control), noise_power<span class="op">=</span>NOISE_W)</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    backend.reset(seed<span class="op">=</span>seed)</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    backend.set_positions({<span class="st">'uav'</span>: BS <span class="op">+</span> [distance, <span class="fl">0.0</span>]})</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    states <span class="op">=</span> backend.transmit_all(rows([message(<span class="st">'uav'</span>, <span class="st">'bs'</span>, B_STATE, k) <span class="cf">for</span> k <span class="kw">in</span> <span class="bu">range</span>(n)]))</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    out <span class="op">=</span> {}</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> kind, size <span class="kw">in</span> ((<span class="st">'action'</span>, B_ACTION), (<span class="st">'model'</span>, B_MODEL)):</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>        replies <span class="op">=</span> [message(<span class="st">'bs'</span>, <span class="st">'uav'</span>, size, k, D_TH <span class="op">-</span> r.latency) <span class="cf">for</span> k, r <span class="kw">in</span> <span class="bu">enumerate</span>(states) <span class="cf">if</span> r.success]</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>        out[kind] <span class="op">=</span> <span class="bu">sum</span>(r.success <span class="cf">for</span> r <span class="kw">in</span> backend.transmit_all(rows(replies))) <span class="op">/</span> n</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> out</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>DISTANCES <span class="op">=</span> np.arange(<span class="dv">0</span>, <span class="dv">601</span>, <span class="dv">20</span>)</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>curves <span class="op">=</span> {(pc, kind): [] <span class="cf">for</span> pc <span class="kw">in</span> (<span class="st">'PC'</span>, <span class="st">'no PC'</span>) <span class="cf">for</span> kind <span class="kw">in</span> (<span class="st">'action'</span>, <span class="st">'model'</span>)}</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> pc, make <span class="kw">in</span> ((<span class="st">'PC'</span>, <span class="kw">lambda</span>: DeadlinePower(P_UL_MAX)), (<span class="st">'no PC'</span>, FixedPower)):</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> d <span class="kw">in</span> DISTANCES:</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> kind, share <span class="kw">in</span> completes(make(), d).items():</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>            curves[pc, kind].append(share)</span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>p_los <span class="op">=</span> [UAVPathLoss(BS, ALTITUDE, FC_GHZ).p_los(d) <span class="cf">for</span> d <span class="kw">in</span> DISTANCES]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="530ff59f" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>colors <span class="op">=</span> {<span class="st">'action'</span>: <span class="st">'#2a78d6'</span>, <span class="st">'model'</span>: <span class="st">'#eb6834'</span>}                  <span class="co"># categorical slots 1 and 2</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots(figsize<span class="op">=</span>(<span class="dv">8</span>, <span class="fl">3.8</span>))</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (pc, kind), y <span class="kw">in</span> curves.items():</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    ax.plot(DISTANCES, <span class="dv">100</span> <span class="op">*</span> np.array(y), <span class="st">'-'</span> <span class="cf">if</span> pc <span class="op">==</span> <span class="st">'PC'</span> <span class="cf">else</span> <span class="st">'--'</span>, color<span class="op">=</span>colors[kind], lw<span class="op">=</span><span class="dv">2</span>,</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>            label<span class="op">=</span><span class="ss">f'</span><span class="sc">{</span>kind<span class="sc">}</span><span class="ss"> (</span><span class="sc">{</span>b <span class="op">*</span> M_WEIGHTS <span class="cf">if</span> kind <span class="op">==</span> <span class="st">"model"</span> <span class="cf">else</span> <span class="dv">2</span> <span class="op">*</span> b<span class="sc">}</span><span class="ss"> bits), </span><span class="sc">{</span><span class="st">"with"</span> <span class="cf">if</span> pc <span class="op">==</span> <span class="st">"PC"</span> <span class="cf">else</span> <span class="st">"without"</span><span class="sc">}</span><span class="ss"> power control'</span>)</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>ax.plot(DISTANCES, <span class="dv">100</span> <span class="op">*</span> np.array(p_los), <span class="st">':'</span>, color<span class="op">=</span><span class="st">'#6b6a63'</span>, lw<span class="op">=</span><span class="fl">1.5</span>, label<span class="op">=</span><span class="st">'line of sight (eq. 12)'</span>)</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>ax.axvline(np.linalg.norm(BS), color<span class="op">=</span><span class="st">'#6b6a63'</span>, lw<span class="op">=</span><span class="fl">0.8</span>)</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>ax.annotate(<span class="st">'the destination'</span>, (np.linalg.norm(BS), <span class="dv">5</span>), xytext<span class="op">=</span>(<span class="dv">4</span>, <span class="dv">0</span>), textcoords<span class="op">=</span><span class="st">'offset points'</span>, fontsize<span class="op">=</span><span class="dv">9</span>)</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>ax.<span class="bu">set</span>(xlabel<span class="op">=</span><span class="st">'horizontal distance from the BS (m)'</span>, ylabel<span class="op">=</span><span class="st">'rounds completed (%)'</span>, ylim<span class="op">=</span>(<span class="dv">0</span>, <span class="dv">102</span>),</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>       title<span class="op">=</span><span class="st">'Rounds whose state and reply arrive within D_th = 2 s'</span>)</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>ax.grid(alpha<span class="op">=</span><span class="fl">0.25</span>)</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> side <span class="kw">in</span> (<span class="st">'top'</span>, <span class="st">'right'</span>):</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>    ax.spines[side].set_visible(<span class="va">False</span>)</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>ax.legend(frameon<span class="op">=</span><span class="va">False</span>, fontsize<span class="op">=</span><span class="dv">8</span>, loc<span class="op">=</span><span class="st">'lower left'</span>)</span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="10_uav_ohjb_files/figure-html/cell-9-output-1.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<ul>
+<li><strong>An action gets through wherever the state does.</strong> At 160 bits it needs little rate, and a round fails only once the state itself takes most of the 2 s. In non-line of sight, that is beyond about 260 m without power control and 280 m with it.</li>
+<li><strong>The controller needs much more.</strong> At 4320 bits (27× an action), it misses the deadline in non-line of sight from about 140 m. Eq. 13’s 3 dB boost moves that to about 190 m, just past the destination (180 m).</li>
+<li>Beyond those distances, a round completes only in line of sight, which eq. 12 makes rarer with distance.</li>
+</ul>
+</section>
+<section id="the-controller" class="level2">
+<h2 class="anchored" data-anchor-id="the-controller">The controller</h2>
+<p>The UAV’s state is <code>s = [r, v]</code>, and it moves as eq. 3: <code>ds = (As + B(a + c₀v_o)) dt + G dW</code>. The quadratic part of eq. 1’s cost is <code>c₁‖r‖² + c₂‖v‖² + c₃‖a‖²</code>, whose HJB solution is <code>ψ = sᵀPs</code>, with <code>P</code> solving the Riccati equation and <code>a = −Ks − c₀v_o</code> (<code>K = Bᵀ P / c₃</code>, as eq. 6). The BS starts from <code>P = 0</code> and takes one step of the Riccati equation per state it receives, which is value iteration with a horizon 0.1 s longer per update. The paper’s model starts from <code>w = 0</code> (<code>a = 0</code>); this one starts by only cancelling the mean wind.</p>
+<p>After 50 updates (the paper’s <code>Dn_th</code>), it is the LQR to within 1%:</p>
+<div id="850d876c" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>A <span class="op">=</span> np.block([[np.zeros((<span class="dv">2</span>, <span class="dv">2</span>)), np.eye(<span class="dv">2</span>)], [np.zeros((<span class="dv">2</span>, <span class="dv">2</span>)), <span class="op">-</span>C0 <span class="op">*</span> np.eye(<span class="dv">2</span>)]])</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>B <span class="op">=</span> np.vstack([np.zeros((<span class="dv">2</span>, <span class="dv">2</span>)), np.eye(<span class="dv">2</span>)])</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>Q, R <span class="op">=</span> np.diag([C1, C1, C2, C2]), C3 <span class="op">*</span> np.eye(<span class="dv">2</span>)</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> train(P, step<span class="op">=</span><span class="fl">0.1</span>):</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">"One update of the BS's controller: a step of the Riccati equation (value iteration)."</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> P <span class="op">+</span> step <span class="op">*</span> (A.T <span class="op">@</span> P <span class="op">+</span> P <span class="op">@</span> A <span class="op">-</span> P <span class="op">@</span> B <span class="op">@</span> np.linalg.solve(R, B.T <span class="op">@</span> P) <span class="op">+</span> Q)</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> model(P):</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">"The weights the BS uploads: the feedback gain K."</span></span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> np.linalg.solve(R, B.T <span class="op">@</span> P)</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> act(K, s):</span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">"The action of the controller K at state s (eq. 6), at most A_MAX."</span></span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>    a <span class="op">=</span> <span class="op">-</span>K <span class="op">@</span> s <span class="op">-</span> C0 <span class="op">*</span> V_O</span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> a <span class="op">*</span> <span class="bu">min</span>(<span class="fl">1.0</span>, A_MAX <span class="op">/</span> np.linalg.norm(a))</span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>P <span class="op">=</span> np.zeros((<span class="dv">4</span>, <span class="dv">4</span>))</span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a>error <span class="op">=</span> []</span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> n <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">100</span>):</span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a>    P <span class="op">=</span> train(P)</span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a>    error.append(np.<span class="bu">abs</span>(model(P) <span class="op">-</span> model(solve_continuous_are(A, B, Q, R))).<span class="bu">max</span>() <span class="op">/</span> model(solve_continuous_are(A, B, Q, R)).<span class="bu">max</span>())</span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> error[<span class="dv">49</span>] <span class="op">&lt;</span> <span class="fl">0.01</span> <span class="kw">and</span> error[<span class="dv">9</span>] <span class="op">&gt;</span> <span class="fl">0.3</span></span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f'after 10 updates: </span><span class="sc">{</span><span class="dv">100</span> <span class="op">*</span> error[<span class="dv">9</span>]<span class="sc">:.0f}</span><span class="ss">% off; after 50: </span><span class="sc">{</span><span class="dv">100</span> <span class="op">*</span> error[<span class="dv">49</span>]<span class="sc">:.2f}</span><span class="ss">%'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>after 10 updates: 35% off; after 50: 0.00%</code></pre>
+</div>
+</div>
+</section>
+<section id="the-rounds" class="level2">
+<h2 class="anchored" data-anchor-id="the-rounds">The rounds</h2>
+<p>Algorithms 1–3, around a <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/network.html#network"><code>Network</code></a> with this pipeline as its backend. In round <code>k</code>:</p>
+<ol type="1">
+<li>At <code>t_o,k</code> the UAV sends its state (<code>4b</code> bits). If it arrives within <code>D_th</code>, after <code>D_DL</code>:</li>
+<li>the BS updates its controller and, at <code>t_o,k + D_DL</code>, sends an action or the controller, with <code>D_th − D_DL</code> left. The action is computed from the state the BS received, which is <code>D_DL</code> old.</li>
+<li>The UAV acts with the most recent action it received, held until the next one, or with the most recent controller it received, applied to its current state every <code>Δt</code>.</li>
+<li>The next round starts when the reply arrives, or at <code>D_th</code> if something was lost, on the grid of <code>Δt</code>.</li>
+</ol>
+<p>oHJB switches to the controller when it has received <code>Dn_th</code> states and the mean delay of the last <code>N</code> received states exceeds <code>αD_th</code>, and stays with it, as the paper’s text and Fig. 2 describe. Algorithm 3’s line 5 says “<code>Dn ≥ Dn_th</code> <strong>or</strong> <code>D̄ ≤ αD_th</code>” for actions, which contradicts the text. <code>Dn</code> and <code>Up</code> count the received states and the received replies.</p>
+<div id="8ce5cbd9" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>RULES <span class="op">=</span> {</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">'aHJB'</span>: <span class="kw">lambda</span> dn, delay: <span class="st">'action'</span>,</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">'mHJB'</span>: <span class="kw">lambda</span> dn, delay: <span class="st">'model'</span>,</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">'oHJB'</span>: <span class="kw">lambda</span> dn, delay: <span class="st">'model'</span> <span class="cf">if</span> dn <span class="op">&gt;=</span> DN_TH <span class="kw">and</span> delay <span class="op">&gt;</span> ALPHA <span class="op">*</span> D_TH <span class="cf">else</span> <span class="st">'action'</span>,</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> fly(rule, power_control, seed, bs<span class="op">=</span>BS, t_max<span class="op">=</span><span class="fl">600.0</span>):</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">"One mission from the BS to the origin: travel time T (inf: not reached), motion energy E(T), and the rounds."</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>    backend <span class="op">=</span> PipelineBackend(radio(power_control, bs), noise_power<span class="op">=</span>NOISE_W)</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>    net <span class="op">=</span> Network([Node(<span class="st">'uav'</span>), Node(<span class="st">'bs'</span>)], TOPOLOGY, IdealProtocol(), backend)</span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>    net.reset(seed<span class="op">=</span>seed)</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>    wind <span class="op">=</span> np.random.default_rng(seed)</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>    s, t, k, P <span class="op">=</span> np.r_[bs, <span class="fl">0.0</span>, <span class="fl">0.0</span>], <span class="fl">0.0</span>, <span class="dv">0</span>, np.zeros((<span class="dv">4</span>, <span class="dv">4</span>))</span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>    held, controller, arriving <span class="op">=</span> np.zeros(<span class="dv">2</span>), <span class="va">None</span>, deque()       <span class="co"># what the UAV acts with; replies on their way</span></span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>    dn, up, delays, switched, energy, log <span class="op">=</span> <span class="dv">0</span>, <span class="dv">0</span>, deque(maxlen<span class="op">=</span>N_AVG), <span class="va">None</span>, <span class="fl">0.0</span>, []</span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> t <span class="op">&lt;</span> t_max <span class="kw">and</span> <span class="kw">not</span> (np.linalg.norm(s[:<span class="dv">2</span>]) <span class="op">&lt;=</span> R_TH <span class="kw">and</span> np.linalg.norm(s[<span class="dv">2</span>:]) <span class="op">&lt;=</span> V_TH):</span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>        backend.set_positions({<span class="st">'uav'</span>: s[:<span class="dv">2</span>].copy()})</span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>        net.send(Message(<span class="st">'uav'</span>, <span class="st">'bs'</span>, s.copy(), size_bits<span class="op">=</span>B_STATE, metadata<span class="op">=</span>{<span class="st">'control'</span>: k, <span class="st">'deadline'</span>: D_TH}))</span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a>        [state] <span class="op">=</span> net.step_to(t)</span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a>        end <span class="op">=</span> t <span class="op">+</span> D_TH</span>
+<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> state.success:                                         <span class="co"># the BS has the state, D_DL after t_o,k</span></span>
+<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a>            dn <span class="op">+=</span> <span class="dv">1</span></span>
+<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a>            delays.append(state.latency)</span>
+<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a>            P <span class="op">=</span> train(P)</span>
+<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a>            kind <span class="op">=</span> <span class="st">'model'</span> <span class="cf">if</span> switched <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span> <span class="cf">else</span> RULES[rule](dn, np.mean(delays))</span>
+<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> kind <span class="op">==</span> <span class="st">'model'</span> <span class="kw">and</span> switched <span class="kw">is</span> <span class="va">None</span>:</span>
+<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a>                switched <span class="op">=</span> t</span>
+<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a>            content <span class="op">=</span> act(model(P), state.payload) <span class="cf">if</span> kind <span class="op">==</span> <span class="st">'action'</span> <span class="cf">else</span> model(P)</span>
+<span id="cb13-29"><a href="#cb13-29" aria-hidden="true" tabindex="-1"></a>            net.send(Message(<span class="st">'bs'</span>, <span class="st">'uav'</span>, content, size_bits<span class="op">=</span>B_ACTION <span class="cf">if</span> kind <span class="op">==</span> <span class="st">'action'</span> <span class="cf">else</span> B_MODEL,</span>
+<span id="cb13-30"><a href="#cb13-30" aria-hidden="true" tabindex="-1"></a>                             metadata<span class="op">=</span>{<span class="st">'control'</span>: k, <span class="st">'deadline'</span>: D_TH <span class="op">-</span> state.latency}), at<span class="op">=</span>t <span class="op">+</span> state.latency)</span>
+<span id="cb13-31"><a href="#cb13-31" aria-hidden="true" tabindex="-1"></a>            [reply] <span class="op">=</span> net.step_to(t <span class="op">+</span> state.latency)</span>
+<span id="cb13-32"><a href="#cb13-32" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> reply.success:</span>
+<span id="cb13-33"><a href="#cb13-33" aria-hidden="true" tabindex="-1"></a>                up <span class="op">+=</span> <span class="dv">1</span></span>
+<span id="cb13-34"><a href="#cb13-34" aria-hidden="true" tabindex="-1"></a>                end <span class="op">=</span> t <span class="op">+</span> state.latency <span class="op">+</span> reply.latency</span>
+<span id="cb13-35"><a href="#cb13-35" aria-hidden="true" tabindex="-1"></a>                arriving.append((end, kind, reply.payload))</span>
+<span id="cb13-36"><a href="#cb13-36" aria-hidden="true" tabindex="-1"></a>        steps <span class="op">=</span> <span class="bu">max</span>(<span class="dv">1</span>, math.ceil((end <span class="op">-</span> t) <span class="op">/</span> DT <span class="op">-</span> <span class="fl">1e-9</span>))</span>
+<span id="cb13-37"><a href="#cb13-37" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(steps):                                    <span class="co"># the UAV flies until the next round</span></span>
+<span id="cb13-38"><a href="#cb13-38" aria-hidden="true" tabindex="-1"></a>            <span class="cf">while</span> arriving <span class="kw">and</span> arriving[<span class="dv">0</span>][<span class="dv">0</span>] <span class="op">&lt;=</span> t <span class="op">+</span> i <span class="op">*</span> DT <span class="op">+</span> <span class="fl">1e-9</span>:</span>
+<span id="cb13-39"><a href="#cb13-39" aria-hidden="true" tabindex="-1"></a>                _, kind, content <span class="op">=</span> arriving.popleft()</span>
+<span id="cb13-40"><a href="#cb13-40" aria-hidden="true" tabindex="-1"></a>                held, controller <span class="op">=</span> (content, <span class="va">None</span>) <span class="cf">if</span> kind <span class="op">==</span> <span class="st">'action'</span> <span class="cf">else</span> (held, content)</span>
+<span id="cb13-41"><a href="#cb13-41" aria-hidden="true" tabindex="-1"></a>            a <span class="op">=</span> act(controller, s) <span class="cf">if</span> controller <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span> <span class="cf">else</span> held</span>
+<span id="cb13-42"><a href="#cb13-42" aria-hidden="true" tabindex="-1"></a>            energy <span class="op">+=</span> (C2 <span class="op">*</span> s[<span class="dv">2</span>:] <span class="op">@</span> s[<span class="dv">2</span>:] <span class="op">+</span> C3 <span class="op">*</span> a <span class="op">@</span> a) <span class="op">*</span> DT</span>
+<span id="cb13-43"><a href="#cb13-43" aria-hidden="true" tabindex="-1"></a>            s <span class="op">=</span> s <span class="op">+</span> np.r_[s[<span class="dv">2</span>:], <span class="op">-</span>C0 <span class="op">*</span> s[<span class="dv">2</span>:] <span class="op">+</span> a <span class="op">+</span> C0 <span class="op">*</span> V_O] <span class="op">*</span> DT <span class="op">+</span> np.r_[<span class="dv">0</span>, <span class="dv">0</span>, V_NOISE <span class="op">*</span> math.sqrt(DT) <span class="op">*</span> wind.standard_normal(<span class="dv">2</span>)]</span>
+<span id="cb13-44"><a href="#cb13-44" aria-hidden="true" tabindex="-1"></a>        log.append((t, s[<span class="dv">0</span>], s[<span class="dv">1</span>], dn, up))</span>
+<span id="cb13-45"><a href="#cb13-45" aria-hidden="true" tabindex="-1"></a>        t, k <span class="op">=</span> t <span class="op">+</span> steps <span class="op">*</span> DT, k <span class="op">+</span> <span class="dv">1</span></span>
+<span id="cb13-46"><a href="#cb13-46" aria-hidden="true" tabindex="-1"></a>    reached <span class="op">=</span> np.linalg.norm(s[:<span class="dv">2</span>]) <span class="op">&lt;=</span> R_TH <span class="kw">and</span> np.linalg.norm(s[<span class="dv">2</span>:]) <span class="op">&lt;=</span> V_TH</span>
+<span id="cb13-47"><a href="#cb13-47" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">dict</span>(T<span class="op">=</span>t <span class="cf">if</span> reached <span class="cf">else</span> math.inf, E<span class="op">=</span>energy, dn<span class="op">=</span>dn, up<span class="op">=</span>up, switched<span class="op">=</span>switched <span class="cf">if</span> rule <span class="op">==</span> <span class="st">'oHJB'</span> <span class="cf">else</span> <span class="va">None</span>,</span>
+<span id="cb13-48"><a href="#cb13-48" aria-hidden="true" tabindex="-1"></a>                comm<span class="op">=</span>net.metrics.summary().total_energy, log<span class="op">=</span>np.array(log))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="at-the-papers-distance" class="level2">
+<h2 class="anchored" data-anchor-id="at-the-papers-distance">At the paper’s distance</h2>
+<p>Each method with and without the power boost, over 8 missions (seeds: the wind and the line of sight):</p>
+<div id="2fe3114b" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>SEEDS <span class="op">=</span> <span class="bu">range</span>(<span class="dv">8</span>)</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>POWER <span class="op">=</span> {<span class="st">'PC'</span>: <span class="kw">lambda</span>: DeadlinePower(P_UL_MAX), <span class="st">'no PC'</span>: FixedPower}</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> table(bs<span class="op">=</span>BS, power<span class="op">=</span>POWER):</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    runs <span class="op">=</span> {(pc, rule): [fly(rule, make(), seed, bs) <span class="cf">for</span> seed <span class="kw">in</span> SEEDS] <span class="cf">for</span> pc, make <span class="kw">in</span> power.items() <span class="cf">for</span> rule <span class="kw">in</span> RULES}</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f'</span><span class="sc">{</span><span class="st">""</span><span class="sc">:14s}{</span><span class="st">"reached"</span><span class="sc">:&gt;9s}{</span><span class="st">"T (s)"</span><span class="sc">:&gt;8s}{</span><span class="st">"E(T)"</span><span class="sc">:&gt;8s}{</span><span class="st">"Dn"</span><span class="sc">:&gt;6s}{</span><span class="st">"Up"</span><span class="sc">:&gt;6s}{</span><span class="st">"radio (J)"</span><span class="sc">:&gt;11s}{</span><span class="st">"switch (s)"</span><span class="sc">:&gt;12s}</span><span class="ss">'</span>)</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (pc, rule), rs <span class="kw">in</span> runs.items():</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>        T <span class="op">=</span> np.array([r[<span class="st">'T'</span>] <span class="cf">for</span> r <span class="kw">in</span> rs])</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>        switch <span class="op">=</span> [r[<span class="st">'switched'</span>] <span class="cf">for</span> r <span class="kw">in</span> rs <span class="cf">if</span> r[<span class="st">'switched'</span>] <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>]</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f'</span><span class="sc">{</span>rule <span class="op">+</span> <span class="st">", "</span> <span class="op">+</span> pc<span class="sc">:14s}{</span>np<span class="sc">.</span>mean(np.isfinite(T))<span class="sc">:9.0%}{</span>np<span class="sc">.</span>median(T)<span class="sc">:8.1f}{</span>np<span class="sc">.</span>median([r[<span class="st">"E"</span>] <span class="cf">for</span> r <span class="kw">in</span> rs])<span class="sc">:8.1f}</span><span class="ss">'</span></span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>              <span class="ss">f'</span><span class="sc">{</span>np<span class="sc">.</span>median([r[<span class="st">"dn"</span>] <span class="cf">for</span> r <span class="kw">in</span> rs])<span class="sc">:6.0f}{</span>np<span class="sc">.</span>median([r[<span class="st">"up"</span>] <span class="cf">for</span> r <span class="kw">in</span> rs])<span class="sc">:6.0f}</span><span class="ss">'</span></span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>              <span class="ss">f'</span><span class="sc">{</span>np<span class="sc">.</span>median([r[<span class="st">"comm"</span>] <span class="cf">for</span> r <span class="kw">in</span> rs])<span class="sc">:11.2f}{</span>np<span class="sc">.</span>median(switch) <span class="cf">if</span> switch <span class="cf">else</span> math<span class="sc">.</span>nan<span class="sc">:12.1f}</span><span class="ss">'</span>)</span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> runs</span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a>runs <span class="op">=</span> table()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                reached   T (s)    E(T)    Dn    Up  radio (J)  switch (s)
+aHJB, PC           100%    48.2    22.5   317   317       2.28         nan
+mHJB, PC           100%    41.6    21.7   216   212       6.20         nan
+oHJB, PC           100%    46.3    22.5   288   287       3.77        35.3
+aHJB, no PC        100%    48.2    22.5   317   317       2.28         nan
+mHJB, no PC        100%    41.2    21.7   214   207       3.90         nan
+oHJB, no PC        100%    46.9    22.7   290   285       2.89        35.3</code></pre>
+</div>
+</div>
+<div id="0c21b993" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>COLORS <span class="op">=</span> {<span class="st">'aHJB'</span>: <span class="st">'#2a78d6'</span>, <span class="st">'mHJB'</span>: <span class="st">'#eb6834'</span>, <span class="st">'oHJB'</span>: <span class="st">'#1baf7a'</span>}   <span class="co"># categorical slots 1-3</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> show(runs, bs, title, seed<span class="op">=</span><span class="dv">0</span>):</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">"The trajectories of one mission per method (with power control), and the states each received."</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>    fig, (ax1, ax2) <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">11</span>, <span class="dv">4</span>))</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> rule, color <span class="kw">in</span> COLORS.items():</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>        r <span class="op">=</span> runs[<span class="st">'PC'</span>, rule][seed]</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>        t, x, y, dn, up <span class="op">=</span> r[<span class="st">'log'</span>].T</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>        ax1.plot(x, y, color<span class="op">=</span>color, lw<span class="op">=</span><span class="dv">2</span>, label<span class="op">=</span><span class="ss">f'</span><span class="sc">{</span>rule<span class="sc">}</span><span class="ss">'</span> <span class="op">+</span> (<span class="st">''</span> <span class="cf">if</span> math.isfinite(r[<span class="st">'T'</span>]) <span class="cf">else</span> <span class="st">' (not reached)'</span>))</span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>        ax2.plot(t, dn, color<span class="op">=</span>color, lw<span class="op">=</span><span class="dv">2</span>, label<span class="op">=</span>rule)</span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> r[<span class="st">'switched'</span>] <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>            i <span class="op">=</span> np.searchsorted(t, r[<span class="st">'switched'</span>])</span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> ax, point <span class="kw">in</span> ((ax1, (x[i], y[i])), (ax2, (t[i], dn[i]))):</span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>                ax.plot(<span class="op">*</span>point, <span class="st">'o'</span>, color<span class="op">=</span>color, ms<span class="op">=</span><span class="dv">8</span>, mec<span class="op">=</span><span class="st">'white'</span>, mew<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>    ax1.plot(<span class="op">*</span>bs, <span class="st">'x'</span>, color<span class="op">=</span><span class="st">'#3b3a36'</span>, ms<span class="op">=</span><span class="dv">9</span>, mew<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>    ax1.annotate(<span class="st">'BS, start'</span>, bs, xytext<span class="op">=</span>(<span class="dv">6</span>, <span class="dv">4</span>), textcoords<span class="op">=</span><span class="st">'offset points'</span>, fontsize<span class="op">=</span><span class="dv">9</span>)</span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>    ax1.plot(<span class="dv">0</span>, <span class="dv">0</span>, <span class="st">'+'</span>, color<span class="op">=</span><span class="st">'#3b3a36'</span>, ms<span class="op">=</span><span class="dv">11</span>, mew<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>    ax1.annotate(<span class="st">'destination'</span>, (<span class="dv">0</span>, <span class="dv">0</span>), xytext<span class="op">=</span>(<span class="dv">6</span>, <span class="op">-</span><span class="dv">12</span>), textcoords<span class="op">=</span><span class="st">'offset points'</span>, fontsize<span class="op">=</span><span class="dv">9</span>)</span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a>    ax1.<span class="bu">set</span>(xlabel<span class="op">=</span><span class="st">'x (m)'</span>, ylabel<span class="op">=</span><span class="st">'y (m)'</span>, title<span class="op">=</span><span class="ss">f'Trajectories (</span><span class="sc">{</span>title<span class="sc">}</span><span class="ss">, seed </span><span class="sc">{</span>seed<span class="sc">}</span><span class="ss">)'</span>, aspect<span class="op">=</span><span class="st">'equal'</span>)</span>
+<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a>    ax2.<span class="bu">set</span>(xlabel<span class="op">=</span><span class="st">'t (s)'</span>, ylabel<span class="op">=</span><span class="st">'states received, Dn(t)'</span>, title<span class="op">=</span><span class="st">'Training samples (dot: oHJB switches)'</span>)</span>
+<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> ax <span class="kw">in</span> (ax1, ax2):</span>
+<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a>        ax.grid(alpha<span class="op">=</span><span class="fl">0.25</span>)</span>
+<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> side <span class="kw">in</span> (<span class="st">'top'</span>, <span class="st">'right'</span>):</span>
+<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a>            ax.spines[side].set_visible(<span class="va">False</span>)</span>
+<span id="cb16-25"><a href="#cb16-25" aria-hidden="true" tabindex="-1"></a>        ax.legend(frameon<span class="op">=</span><span class="va">False</span>, fontsize<span class="op">=</span><span class="dv">9</span>)</span>
+<span id="cb16-26"><a href="#cb16-26" aria-hidden="true" tabindex="-1"></a>    plt.tight_layout()</span>
+<span id="cb16-27"><a href="#cb16-27" aria-hidden="true" tabindex="-1"></a>    plt.show()</span>
+<span id="cb16-28"><a href="#cb16-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-29"><a href="#cb16-29" aria-hidden="true" tabindex="-1"></a>show(runs, BS, <span class="st">"the paper's distance"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="10_uav_ohjb_files/figure-html/cell-13-output-1.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<ul>
+<li><strong>All three methods reach the destination, with or without power control.</strong> Within 180 m, the link serves all of them.</li>
+<li><strong>mHJB is the fastest: 41.6 s, against 48.2 s for aHJB and 46.3 s for oHJB.</strong> With the controller on board, the UAV acts on its current state every 0.1 s. An action is computed from the state at the start of the round and held until the next one arrives, so near the destination the UAV corrects late and takes longer to settle.</li>
+<li><strong>More training samples buy nothing here.</strong> aHJB receives the most states (317, against 216 for mHJB). But the stand-in controller is fully trained after 50 of them, in the first 5 s, while the UAV is close to the BS and every reply takes under 0.1 s. That removes the paper’s reason to send actions first. Its HJB NN trains slowly, so there the extra samples matter.</li>
+<li><strong>Power control matters only for mHJB, and little.</strong> It boosts the controller’s uploads in non-line of sight beyond 140 m. A lost upload leaves the UAV with the previous controller, already trained, so the travel time barely changes (41.6 s against 41.2 s), while the radio energy goes from 3.9 J to 6.2 J. Actions never need the boost within 180 m.</li>
+<li><strong>oHJB switches at about 35 s (the median),</strong> once its last five states took 0.4 s on average. That happens in non-line of sight, far out.</li>
+</ul>
+</section>
+<section id="farther-from-the-base-station" class="level2">
+<h2 class="anchored" data-anchor-id="farther-from-the-base-station">Farther from the base station</h2>
+<p>The same mission with the BS (and the start) 2× and 3× as far from the destination, 361 m and 541 m. Power control is on: beyond about 300 m, a round in non-line of sight loses the state itself, before the BS could boost anything (the figure above).</p>
+<div id="bbe60f9d" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>far <span class="op">=</span> {scale: table(BS <span class="op">*</span> scale, {<span class="st">'PC'</span>: POWER[<span class="st">'PC'</span>]}) <span class="cf">for</span> scale <span class="kw">in</span> (<span class="dv">2</span>, <span class="dv">3</span>)}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                reached   T (s)    E(T)    Dn    Up  radio (J)  switch (s)
+aHJB, PC             0%     inf   268.3   462   458      56.85         nan
+mHJB, PC           100%    63.5    48.2   218   212       7.26         nan
+oHJB, PC           100%    61.8    48.2   276   272       4.79        32.6
+                reached   T (s)    E(T)    Dn    Up  radio (J)  switch (s)
+aHJB, PC             0%     inf   406.0   358   358      57.29         nan
+mHJB, PC           100%    81.4    74.8   220   214       8.97         nan
+oHJB, PC           100%    79.9    74.8   278   274       6.59        32.7</code></pre>
+</div>
+</div>
+<div id="13b97d76" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>show(far[<span class="dv">2</span>], <span class="dv">2</span> <span class="op">*</span> BS, <span class="st">'2× as far'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="10_uav_ohjb_files/figure-html/cell-15-output-1.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<ul>
+<li><strong>aHJB never arrives.</strong> Beyond 300 m, a round in non-line of sight loses the state, and the UAV holds its last action for the whole 2 s, often for several rounds in a row. A saturated action held that long overshoots, which takes the UAV farther from the BS, where more rounds are lost. In the figure, it circles the destination, as far as 270 m from it, until the 600 s limit. This is the failure the paper reports for aHJB.</li>
+<li><strong>mHJB and oHJB arrive every time, within 2.5% of each other’s travel time:</strong> 63.5 s and 61.8 s at 2×, 81.4 s and 79.9 s at 3×. A UAV that runs its controller loses nothing when a round is lost.</li>
+<li><strong>oHJB uses about a third less radio energy than mHJB:</strong> 4.8 J against 7.3 J at 2×, and 6.6 J against 9.0 J at 3×. Near the BS, actions do as well as the controller at 1/27 of the size. oHJB switches at about 33 s, once the rounds slow down.</li>
+</ul>
+<p><strong>Against the paper.</strong> The communication model gives the paper’s trade-off: actions are cheap and work while the link holds, and only a controller on board survives losing it. oHJB arrives whenever mHJB does. Its travel time is within 2.5% of mHJB’s far from the BS and 11% longer at the paper’s distance, and it uses the least radio energy of the methods that arrive far out. The paper also finds oHJB 13% faster than both, and mHJB failing without power control. Those results depend on how slowly its HJB NN trains, which the stand-in controller doesn’t reproduce. Replacing the controller is a change to the application only. The blocks and the network stay as they are.</p>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/Ahmed-Khaled-Saleh\.github\.io\/comm-core");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div></div></footer></body></html>

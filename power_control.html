@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.19">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="How much power a transmission uses, and whether it is sent at all: fixed, channel inversion, or from a prediction of the channel.">
+
+<title>Power control – comm-core</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-bf27225e3a48a9273f3daa8f8e829971.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-f2788e636de456f6409e966386820849.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="styles.css">
+<meta property="og:title" content="Power control – comm-core">
+<meta property="og:description" content="How much power a transmission uses, and whether it is sent at all: fixed, channel inversion, or from a prediction of the channel.">
+<meta property="og:site_name" content="comm-core">
+<meta name="twitter:title" content="Power control – comm-core">
+<meta name="twitter:description" content="How much power a transmission uses, and whether it is sent at all: fixed, channel inversion, or from a prediction of the channel.">
+<meta name="twitter:card" content="summary">
+</head>
+
+<body class="nav-sidebar floating nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">comm-core</span>
+    </a>
+  </div>
+        <div class="quarto-navbar-tools tools-end">
+</div>
+          <div id="quarto-search" class="" title="Search"></div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./propagation.html">Radio</a></li><li class="breadcrumb-item"><a href="./power_control.html">Power control</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">comm-core</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./principles.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Design principles</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./design.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Architecture</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Examples</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./examples/sharing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Agents sharing what they see</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./examples/medium_access.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Medium access and interference</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./examples/continuous_positions.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Channels at continuous positions</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./examples/fidelity.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Levels of fidelity</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./examples/robot_control.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Robot control over Wi-Fi</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./examples/predicted_power.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Power control without channel knowledge</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./examples/power_across_layouts.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Power control on new layouts</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./examples/map_mismatch.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">When the radio map is wrong</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./examples/c3wm_blocks.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">C3-WM’s link, built from blocks</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./examples/uav_ohjb.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Remote UAV control, built from blocks</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true">
+ <span class="menu-text">Core</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./core.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Core</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./topology.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Topology</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./channel.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Channel</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./protocol.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Protocol</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./block.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Blocks</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./backend.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Backend</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./network.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Network</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./metrics.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Metrics</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./init.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Public API</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true">
+ <span class="menu-text">Radio</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./propagation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Propagation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./power_control.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Power control</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./interference.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Interference</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./phy_abstraction.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">PHY abstraction</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./link_adaptation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Link adaptation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./radio.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Radio channels</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./system.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">System-level simulation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./link.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Link-level simulation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./sionna_rt.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Sionna RT channel</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./sionna_sys.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Sionna SYS</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./sionna_phy.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Sionna PHY</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#without-the-channel-at-the-transmitter" id="toc-without-the-channel-at-the-transmitter" class="nav-link active" data-scroll-target="#without-the-channel-at-the-transmitter">Without the channel at the transmitter</a></li>
+  <li><a href="#with-a-map-and-reported-positions" id="toc-with-a-map-and-reported-positions" class="nav-link" data-scroll-target="#with-a-map-and-reported-positions">With a map and reported positions</a></li>
+  <li><a href="#in-a-channel" id="toc-in-a-channel" class="nav-link" data-scroll-target="#in-a-channel">In a channel</a></li>
+  </ul>
+<div class="toc-actions"><ul><li><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div><div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="power_control.html.md"><i class="bi bi-file-code"></i>Markdown</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./propagation.html">Radio</a></li><li class="breadcrumb-item"><a href="./power_control.html">Power control</a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title">Power control</h1>
+</div>
+
+<div>
+  <div class="description">
+    How much power a transmission uses, and whether it is sent at all: fixed, channel inversion, or from a prediction of the channel.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<!-- WARNING: THIS FILE WAS AUTOGENERATED! DO NOT EDIT! -->
+<p>A <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/power_control.html#powercontrol"><code>PowerControl</code></a> decides the transmit power <code>P</code> from the channel gain <code>|h|²</code>, and whether to transmit at all. A link it does not use is an <em>outage</em>: nothing is sent, so the receiver gets nothing.</p>
+<ul>
+<li><a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/power_control.html#fixedpower"><code>FixedPower</code></a> uses the same power always, by default the link’s <code>tx_power_w</code>.</li>
+<li><a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/power_control.html#channelinversion"><code>ChannelInversion</code></a> uses just enough power to reach a target SNR: <code>P = γ σ² / |h|²</code>, where <code>γ</code> is the target SNR and <code>σ²</code> the noise power. A link needing more than <code>max_power</code> is not used.</li>
+<li><a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/power_control.html#messagepower"><code>MessagePower</code></a> uses the power the sender chose, e.g.&nbsp;a learned power control, put in the message’s metadata.</li>
+</ul>
+<p><code>allocate</code> is vectorized (numpy arrays or torch tensors), so training code can handle a whole batch of links at once. As a block, a power control gives the <code>power</code> and <code>active</code> of a step’s transmissions from their <code>h</code>, calling <code>allocate</code> for each with <code>|h|²</code> (the mean over the subcarriers). Nodes at the same place need no power.</p>
+<p><strong>A broadcast is one emission, at one power.</strong> Its copies (<code>group</code>, see <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/network.html#network.broadcast"><code>Network.broadcast</code></a>) are one signal, so they can’t have a power each. Each copy is allocated as above, then all of them get the most power any copy that would be sent needs: enough for the weakest neighbour within the budget. The others hear the same signal at that power, stronger than they need, or weaker than they need if they are beyond the budget. None is sent if no copy would be. Per-link power is for unicasts: one message per link, as in C3-WM.</p>
+<p>This is the role of <code>sionna.sys.power_control</code> in Sionna SYS (<code>open_loop_uplink_power_control</code>, <code>downlink_fair_power_control</code>). Here a power control is a block (see <code>block</code>), and it may keep a state: what it learned of each link, or where the nodes reported they are.</p>
+<div id="70d0a370" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-13T17:07:34.779762+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-13T17:07:34.790493+00:00&quot;,&quot;total&quot;:0.010736073000003898}}" data-execution_count="4">
+<hr>
+<p><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/blob/main/comm_core/power_control.py#L107" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="messagepower" class="level3">
+<h3 class="anchored" data-anchor-id="messagepower">MessagePower</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> MessagePower(</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    key:<span class="bu">str</span><span class="op">=</span><span class="st">'tx_power'</span>, <span class="co"># Metadata key of the power</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    max_power:<span class="bu">float</span><span class="op">=</span>inf, <span class="co"># Larger powers are clipped to it</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The power the sender chose (e.g.&nbsp;a learned power control), in <code>message.metadata[key]</code>; no power or 0: not sent.</em></p>
+</section>
+</div>
+<div id="14278b7d" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-13T17:07:34.790658+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-13T17:07:34.794876+00:00&quot;,&quot;total&quot;:0.004223254999999426}}" data-execution_count="5">
+<hr>
+<p><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/blob/main/comm_core/power_control.py#L89" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="channelinversion" class="level3">
+<h3 class="anchored" data-anchor-id="channelinversion">ChannelInversion</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> ChannelInversion(</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    target_snr_db:<span class="bu">float</span><span class="op">=</span><span class="fl">10.0</span>, <span class="co"># SNR at the receiver</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    max_power:<span class="bu">float</span><span class="op">=</span>inf, <span class="co"># Power budget</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Just enough power to reach <code>target_snr_db</code>: P = snr noise_power / |h|^2; links needing more than <code>max_power</code> are not used.</em></p>
+</section>
+</div>
+<div id="88ca4115" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-13T17:07:34.795046+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-13T17:07:34.798870+00:00&quot;,&quot;total&quot;:0.003829854000002797}}" data-execution_count="6">
+<hr>
+<p><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/blob/main/comm_core/power_control.py#L75" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="fixedpower" class="level3">
+<h3 class="anchored" data-anchor-id="fixedpower">FixedPower</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> FixedPower(</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    power:<span class="bu">float</span> <span class="op">|</span> <span class="va">None</span><span class="op">=</span><span class="va">None</span>, <span class="co"># Transmit power; None: the link's `tx_power_w` (1 without a link)</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The same power always.</em></p>
+</section>
+</div>
+<div id="125e614f" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-13T17:07:34.799039+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-13T17:07:34.802731+00:00&quot;,&quot;total&quot;:0.0036959439999861843}}" data-execution_count="7">
+<hr>
+<p><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/blob/main/comm_core/power_control.py#L27" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="powercontrol" class="level3">
+<h3 class="anchored" data-anchor-id="powercontrol">PowerControl</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> PowerControl(</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>args, <span class="op">**</span>kwargs</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>How much power a transmission uses, and whether it is sent at all.</em></p>
+</section>
+</div>
+<div id="3f5ebf1d" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-13T17:07:34.802880+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-13T17:07:34.806864+00:00&quot;,&quot;total&quot;:0.003988752999987355}}" data-execution_count="8">
+<hr>
+<p><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/blob/main/comm_core/power_control.py#L33" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="powercontrol.allocate" class="level3">
+<h3 class="anchored" data-anchor-id="powercontrol.allocate">PowerControl.allocate</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> allocate(</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    gain, <span class="co"># Channel power gain |h|^2 (a number, an array or a tensor)</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    noise_power, <span class="co"># Noise power at the receiver</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    link:Link <span class="op">|</span> <span class="va">None</span><span class="op">=</span><span class="va">None</span>, <span class="co"># The link (for one transmission)</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    message:Message <span class="op">|</span> <span class="va">None</span><span class="op">=</span><span class="va">None</span>, <span class="co"># The message (for one transmission)</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>(power, transmit): the transmit power, and whether to transmit (False: outage), shaped like <code>gain</code>.</em></p>
+</section>
+</div>
+<div id="79fc7965" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-13T17:07:34.807051+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-13T17:07:34.814154+00:00&quot;,&quot;total&quot;:0.00710906300000147}}" data-execution_count="9">
+<hr>
+<p><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/blob/main/comm_core/power_control.py#L42" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="powercontrol.call" class="level3">
+<h3 class="anchored" data-anchor-id="powercontrol.call">PowerControl.call</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> call(</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    h:np.ndarray, <span class="co"># h of each transmission at each subcarrier, (n, K)</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    noise_power:<span class="bu">float</span>, <span class="co"># Noise power at the receivers</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    link:Sequence[Link], <span class="co"># Their links</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    transmission:Sequence[Transmission] <span class="op">|</span> <span class="va">None</span><span class="op">=</span><span class="va">None</span>, <span class="co"># The transmissions (for their messages)</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    group:Sequence <span class="op">|</span> <span class="va">None</span><span class="op">=</span><span class="va">None</span>, <span class="co"># The broadcast of each transmission, None for a unicast (None: all unicasts)</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span>Tuple[np.ndarray, np.ndarray]:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>(power, active) of each transmission: <code>allocate</code>, one by one, then one power per broadcast; a disabled link is not active.</em></p>
+</section>
+</div>
+<div id="5d610026" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>p, ok <span class="op">=</span> ChannelInversion(target_snr_db<span class="op">=</span><span class="dv">10</span>, max_power<span class="op">=</span><span class="dv">10</span>).allocate(np.array([<span class="fl">1.0</span>, <span class="fl">0.5</span>, <span class="fl">0.01</span>, <span class="fl">0.0</span>]), noise_power<span class="op">=</span><span class="fl">1.0</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> np.allclose(p[:<span class="dv">3</span>], [<span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">1000</span>]) <span class="kw">and</span> p[<span class="dv">3</span>] <span class="op">==</span> np.inf <span class="kw">and</span> ok.tolist() <span class="op">==</span> [<span class="va">True</span>, <span class="va">False</span>, <span class="va">False</span>, <span class="va">False</span>]</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="co"># as a block: one row per transmission; a disabled link is not sent, nodes at the same place need no power</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>links <span class="op">=</span> [Link(<span class="st">'a'</span>, <span class="st">'b'</span>), Link(<span class="st">'a'</span>, <span class="st">'c'</span>, enabled<span class="op">=</span><span class="va">False</span>), Link(<span class="st">'a'</span>, <span class="st">'d'</span>)]</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>power, active <span class="op">=</span> ChannelInversion(<span class="dv">10</span>)(np.array([[<span class="fl">0.5</span>], [<span class="fl">1.0</span>], [math.inf]]), <span class="fl">1.0</span>, links)     <span class="co"># |h|^2 = 0.25: 40</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> power.tolist() <span class="op">==</span> [<span class="fl">40.0</span>, <span class="fl">10.0</span>, <span class="fl">0.0</span>] <span class="kw">and</span> active.tolist() <span class="op">==</span> [<span class="va">True</span>, <span class="va">False</span>, <span class="va">True</span>]</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>p, ok <span class="op">=</span> FixedPower().allocate(<span class="fl">0.3</span>, <span class="fl">1.0</span>, link<span class="op">=</span>Link(<span class="st">'a'</span>, <span class="st">'b'</span>, tx_power_w<span class="op">=</span><span class="fl">0.2</span>))</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="bu">float</span>(p) <span class="op">==</span> <span class="fl">0.2</span> <span class="kw">and</span> <span class="bu">bool</span>(ok)</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="kw">not</span> ChannelInversion(<span class="dv">10</span>).allocate(<span class="fl">0.0</span>, <span class="fl">1.0</span>)[<span class="dv">1</span>]                      <span class="co"># no channel: not sent, even without a budget</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> MessagePower(max_power<span class="op">=</span><span class="dv">5</span>).allocate(<span class="fl">1.0</span>, <span class="fl">1.0</span>, message<span class="op">=</span>Message(<span class="st">'a'</span>, <span class="st">'b'</span>, <span class="va">None</span>, metadata<span class="op">=</span>{<span class="st">'tx_power'</span>: <span class="dv">9</span>})) <span class="op">==</span> (<span class="fl">5.0</span>, <span class="va">True</span>)</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> MessagePower().allocate(<span class="fl">1.0</span>, <span class="fl">1.0</span>, message<span class="op">=</span>Message(<span class="st">'a'</span>, <span class="st">'b'</span>, <span class="va">None</span>)) <span class="op">==</span> (<span class="fl">0.0</span>, <span class="va">False</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="dd1bae96" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># a broadcast is one emission: its copies get the power of the weakest one within the budget, even those beyond it</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>links <span class="op">=</span> [Link(<span class="st">'a'</span>, n) <span class="cf">for</span> n <span class="kw">in</span> <span class="st">'bcde'</span>]</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>h <span class="op">=</span> np.sqrt([[<span class="fl">1.0</span>], [<span class="fl">0.25</span>], [<span class="fl">0.001</span>], [<span class="fl">0.25</span>]])                              <span class="co"># needs 10, 40, 10_000 (&gt; 100), 40</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>power, active <span class="op">=</span> ChannelInversion(<span class="dv">10</span>, max_power<span class="op">=</span><span class="dv">100</span>)(h, <span class="fl">1.0</span>, links, group<span class="op">=</span>[<span class="st">'x'</span>, <span class="st">'x'</span>, <span class="st">'x'</span>, <span class="va">None</span>])</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> power.tolist() <span class="op">==</span> [<span class="fl">40.0</span>, <span class="fl">40.0</span>, <span class="fl">40.0</span>, <span class="fl">40.0</span>] <span class="kw">and</span> active.<span class="bu">all</span>()</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>power, active <span class="op">=</span> ChannelInversion(<span class="dv">10</span>, max_power<span class="op">=</span><span class="dv">100</span>)(h[:<span class="dv">3</span>], <span class="fl">1.0</span>, links[:<span class="dv">3</span>], group<span class="op">=</span>[<span class="st">'x'</span>, <span class="st">'x'</span>, <span class="va">None</span>])</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> np.allclose(power, [<span class="dv">40</span>, <span class="dv">40</span>, <span class="dv">10_000</span>]) <span class="kw">and</span> active.tolist() <span class="op">==</span> [<span class="va">True</span>, <span class="va">True</span>, <span class="va">False</span>]   <span class="co"># a unicast keeps its own</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>power, active <span class="op">=</span> ChannelInversion(<span class="dv">10</span>, max_power<span class="op">=</span><span class="dv">1</span>)(h[:<span class="dv">2</span>], <span class="fl">1.0</span>, links[:<span class="dv">2</span>], group<span class="op">=</span>[<span class="st">'x'</span>, <span class="st">'x'</span>])</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="kw">not</span> active.<span class="bu">any</span>()                                                    <span class="co"># no copy within the budget: not sent</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>power, active <span class="op">=</span> FixedPower(<span class="fl">2.0</span>)(h[:<span class="dv">2</span>], <span class="fl">1.0</span>, [links[<span class="dv">0</span>], Link(<span class="st">'a'</span>, <span class="st">'c'</span>, enabled<span class="op">=</span><span class="va">False</span>)], group<span class="op">=</span>[<span class="st">'x'</span>, <span class="st">'x'</span>])</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> active.tolist() <span class="op">==</span> [<span class="va">True</span>, <span class="va">False</span>]                                    <span class="co"># a disabled link still gets nothing</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<section id="without-the-channel-at-the-transmitter" class="level3">
+<h3 class="anchored" data-anchor-id="without-the-channel-at-the-transmitter">Without the channel at the transmitter</h3>
+<p>Channel inversion needs the current channel gain <code>|h|²</code>, which a transmitter rarely has: it would take feedback from the receiver, and the channel changes in the meantime. <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/power_control.html#predictedchannelinversion"><code>PredictedChannelInversion</code></a> predicts it instead, from the link’s past gains (as in C3-WM):</p>
+<ol type="1">
+<li><strong>Prediction:</strong> <code>ŷ = max(0, Ψ([|h_{t-1}|², ..., |h_{t-L}|²]))</code>, where <code>Ψ</code> is a predictor, e.g.&nbsp;learned.</li>
+<li><strong>Power:</strong> <code>ρ = Γ σ² / ŷ</code>, where <code>Γ</code> is the target SNR.</li>
+<li><strong>Scheduling:</strong> the transmission is sent only if <code>ρ ≤ ρ_max</code>.</li>
+<li><strong>Start of a link:</strong> until the link has <code>L</code> past gains, it sends at a fallback power.</li>
+</ol>
+<p>The gain of each transmission is added to its link’s history afterwards (the channel known after the fact, e.g. from the receiver’s feedback). The history is per directed link, one entry per transmission, and is forgotten when the channel is reset (a new episode).</p>
+<p>The SNR at the receiver is then <code>ρ |h_t|² / σ²</code>, which misses the target by the prediction’s error.</p>
+<p><a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/power_control.html#gain_windows"><code>gain_windows</code></a> turns gain sequences into a predictor’s training set: past <code>L</code> gains → the next one. Collect the sequences by running the environment and reading the fading’s gains, e.g.&nbsp;<a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/propagation.html#raytracedfading.path_gain"><code>RayTracedFading.path_gain</code></a>. <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/power_control.html#fit_gain_predictor"><code>fit_gain_predictor</code></a> fits a linear <code>Ψ</code> by regularized least squares.</p>
+<p><strong>Fit in dB or on <code>|h|²</code>.</strong> Gains typically span tens of dB. A least-squares fit of <code>|h|²</code> itself (<code>domain='linear'</code>, C3-WM’s eq. 24) is dominated by the strongest links, and overestimates the weak ones: a bias a margin must make up for. A fit in dB (<code>domain='db'</code>) is unbiased. Neither makes the target reliable when the past gains say little about the next one, e.g.&nbsp;when nodes move many wavelengths between transmissions. A map of the channel does better there (see <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/power_control.html#mapchannelinversion"><code>MapChannelInversion</code></a> below, and the example <a href="./examples/predicted_power.html">power control without channel knowledge</a>).</p>
+<p><strong>Margin.</strong> Even an unbiased prediction misses half the time, by its error. <code>margin_db</code> aims that much above the target, trading power for reliability.</p>
+<div id="88c3fcfc" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-13T17:07:34.826732+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-13T17:07:34.831697+00:00&quot;,&quot;total&quot;:0.0049710309999966285}}" data-execution_count="11">
+<hr>
+<p><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/blob/main/comm_core/power_control.py#L124" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="gain_windows" class="level3">
+<h3 class="anchored" data-anchor-id="gain_windows">gain_windows</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> gain_windows(</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    gains:Sequence[<span class="bu">float</span>], <span class="co"># One link's channel gains |h|^2, in time order</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    history:<span class="bu">int</span>, <span class="co"># Past gains per window (L)</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span>Tuple[np.ndarray, np.ndarray]:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>(X, y): each gain y_t with the <code>history</code> gains before it, most recent first: X_t = [g_{t-1}, …, g_{t-L}].</em></p>
+</section>
+</div>
+<div id="55691b07" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-13T17:07:34.831865+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-13T17:07:34.838588+00:00&quot;,&quot;total&quot;:0.0067279409999798645}}" data-execution_count="12">
+<hr>
+<p><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/blob/main/comm_core/power_control.py#L136" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="fit_gain_predictor" class="level3">
+<h3 class="anchored" data-anchor-id="fit_gain_predictor">fit_gain_predictor</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> fit_gain_predictor(</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>    sequences:Sequence[Sequence[<span class="bu">float</span>]], <span class="co"># Gain sequences |h|^2 (e.g. one per link and episode)</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>    history:<span class="bu">int</span>, <span class="co"># Past gains the predictor sees (L)</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    ridge:<span class="bu">float</span><span class="op">=</span><span class="fl">1e-06</span>, <span class="co"># L2 regularization of the weights</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>    domain:<span class="bu">str</span><span class="op">=</span><span class="st">'linear'</span>, <span class="co"># Fit |h|^2 itself ('linear'), or its value in dB ('db', for power inversion; see below)</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span>Callable:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>A linear predictor of the next channel gain from the last <code>history</code> ones (least squares with a bias).</em></p>
+</section>
+</div>
+<div id="8cb93818" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-13T17:07:34.838749+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-13T17:07:34.843478+00:00&quot;,&quot;total&quot;:0.004734501000001501}}" data-execution_count="13">
+<hr>
+<p><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/blob/main/comm_core/power_control.py#L167" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="predictedchannelinversion" class="level3">
+<h3 class="anchored" data-anchor-id="predictedchannelinversion">PredictedChannelInversion</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> PredictedChannelInversion(</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>    predictor:Callable, <span class="co"># Past gains (most recent first, `history` of them) -&gt; the current gain, e.g. `fit_gain_predictor`</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>    history:<span class="bu">int</span>, <span class="co"># Past gains the predictor needs (L)</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>    target_snr_db:<span class="bu">float</span><span class="op">=</span><span class="fl">10.0</span>, <span class="co"># Target SNR at the receiver (Γ)</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>    max_power:<span class="bu">float</span><span class="op">=</span>inf, <span class="co"># Power budget (ρ_max); more: not sent</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>    fallback_power:<span class="bu">float</span> <span class="op">|</span> <span class="va">None</span><span class="op">=</span><span class="va">None</span>, <span class="co"># Power while a link has fewer than `history` past gains; None: the link's tx_power_w</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>    margin_db:<span class="bu">float</span><span class="op">=</span><span class="fl">0.0</span>, <span class="co"># Extra SNR aimed for, against prediction errors</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Channel inversion with a predicted gain: |h|^2 predicted from the link’s past gains, as without channel knowledge.</em></p>
+</section>
+</div>
+<div id="55e5eec7" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>X, y <span class="op">=</span> gain_windows([<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>, <span class="dv">4</span>, <span class="dv">5</span>], history<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> X.tolist() <span class="op">==</span> [[<span class="dv">2</span>, <span class="dv">1</span>], [<span class="dv">3</span>, <span class="dv">2</span>], [<span class="dv">4</span>, <span class="dv">3</span>]] <span class="kw">and</span> y.tolist() <span class="op">==</span> [<span class="dv">3</span>, <span class="dv">4</span>, <span class="dv">5</span>]      <span class="co"># most recent first</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> gain_windows([<span class="dv">1</span>, <span class="dv">2</span>], history<span class="op">=</span><span class="dv">2</span>)[<span class="dv">0</span>].shape <span class="op">==</span> (<span class="dv">0</span>, <span class="dv">2</span>)</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="co"># a predictable channel: an AR(1) process around 1e-9; the fit recovers its coefficient</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> np.random.default_rng(<span class="dv">0</span>)</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> ar1(n, a<span class="op">=</span><span class="fl">0.9</span>, mean<span class="op">=</span><span class="fl">1e-9</span>):</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>    g <span class="op">=</span> [mean]</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(n <span class="op">-</span> <span class="dv">1</span>):</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>        g.append(mean <span class="op">+</span> a <span class="op">*</span> (g[<span class="op">-</span><span class="dv">1</span>] <span class="op">-</span> mean) <span class="op">+</span> <span class="fl">0.1</span> <span class="op">*</span> mean <span class="op">*</span> rng.standard_normal())</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> np.<span class="bu">abs</span>(g)</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>psi <span class="op">=</span> fit_gain_predictor([ar1(<span class="dv">500</span>) <span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">20</span>)], history<span class="op">=</span><span class="dv">3</span>)</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="bu">abs</span>(psi.weights[<span class="dv">0</span>] <span class="op">-</span> <span class="fl">0.9</span>) <span class="op">&lt;</span> <span class="fl">0.05</span> <span class="kw">and</span> <span class="bu">abs</span>(psi.weights[<span class="dv">1</span>]) <span class="op">&lt;</span> <span class="fl">0.05</span></span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="bu">abs</span>(psi([<span class="fl">1.2e-9</span>, <span class="fl">1.1e-9</span>, <span class="fl">1.0e-9</span>]) <span class="op">-</span> (<span class="fl">1e-9</span> <span class="op">+</span> <span class="fl">0.9</span> <span class="op">*</span> <span class="fl">0.2e-9</span>)) <span class="op">&lt;</span> <span class="fl">0.02e-9</span></span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a><span class="co"># in dB: a gain halving every step (-3 dB per step) is predicted exactly</span></span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>halving <span class="op">=</span> [<span class="fl">1e-6</span> <span class="op">*</span> <span class="fl">0.5</span> <span class="op">**</span> t <span class="cf">for</span> t <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">30</span>)]</span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>psi_db <span class="op">=</span> fit_gain_predictor([halving], history<span class="op">=</span><span class="dv">2</span>, domain<span class="op">=</span><span class="st">'db'</span>, ridge<span class="op">=</span><span class="dv">0</span>)</span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="bu">abs</span>(psi_db([halving[<span class="dv">5</span>], halving[<span class="dv">4</span>]]) <span class="op">/</span> halving[<span class="dv">6</span>] <span class="op">-</span> <span class="dv">1</span>) <span class="op">&lt;</span> <span class="fl">1e-6</span> <span class="kw">and</span> psi_db.domain <span class="op">==</span> <span class="st">'db'</span></span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a><span class="cf">try</span>:</span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>    fit_gain_predictor([halving], history<span class="op">=</span><span class="dv">2</span>, domain<span class="op">=</span><span class="st">'log2'</span>)<span class="op">;</span> <span class="cf">raise</span> <span class="pp">AssertionError</span>(<span class="st">'no error'</span>)</span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a><span class="cf">except</span> <span class="pp">ValueError</span>:</span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">pass</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="61b0cfc0" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># fallback while the history is short, then the prediction; one history per directed link; reset forgets</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>const <span class="op">=</span> <span class="kw">lambda</span> past: past[<span class="dv">0</span>]                                     <span class="co"># predict "the same as last time"</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>pc <span class="op">=</span> PredictedChannelInversion(const, history<span class="op">=</span><span class="dv">2</span>, target_snr_db<span class="op">=</span><span class="dv">10</span>, max_power<span class="op">=</span><span class="fl">1e3</span>, fallback_power<span class="op">=</span><span class="fl">0.5</span>)</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>ab, ba <span class="op">=</span> Link(<span class="st">'a'</span>, <span class="st">'b'</span>), Link(<span class="st">'b'</span>, <span class="st">'a'</span>)</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> pc.allocate(<span class="fl">0.1</span>, <span class="fl">1.0</span>, link<span class="op">=</span>ab) <span class="op">==</span> (<span class="fl">0.5</span>, <span class="va">True</span>) <span class="kw">and</span> pc.predicted <span class="kw">is</span> <span class="va">None</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> pc.allocate(<span class="fl">0.2</span>, <span class="fl">1.0</span>, link<span class="op">=</span>ab) <span class="op">==</span> (<span class="fl">0.5</span>, <span class="va">True</span>)</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>p, ok <span class="op">=</span> pc.allocate(<span class="fl">0.4</span>, <span class="fl">1.0</span>, link<span class="op">=</span>ab)                           <span class="co"># predicts 0.2 (the last gain), not the true 0.4</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="bu">abs</span>(p <span class="op">-</span> <span class="dv">10</span> <span class="op">/</span> <span class="fl">0.2</span>) <span class="op">&lt;</span> <span class="fl">1e-9</span> <span class="kw">and</span> ok <span class="kw">and</span> pc.predicted <span class="op">==</span> <span class="fl">0.2</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> pc.allocate(<span class="fl">1.0</span>, <span class="fl">1.0</span>, link<span class="op">=</span>ba) <span class="op">==</span> (<span class="fl">0.5</span>, <span class="va">True</span>)             <span class="co"># the other direction has its own history</span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>p, ok <span class="op">=</span> pc.allocate(<span class="fl">1.0</span>, <span class="fl">1.0</span>, link<span class="op">=</span>ab)                           <span class="co"># predicts 0.4</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="bu">abs</span>(p <span class="op">-</span> <span class="dv">25</span>) <span class="op">&lt;</span> <span class="fl">1e-9</span></span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>pc.margin_db <span class="op">=</span> <span class="fl">3.0</span></span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="bu">abs</span>(pc.allocate(<span class="fl">1.0</span>, <span class="fl">1.0</span>, link<span class="op">=</span>ab)[<span class="dv">0</span>] <span class="op">-</span> <span class="dv">10</span> <span class="op">**</span> <span class="fl">1.3</span> <span class="op">/</span> <span class="fl">1.0</span>) <span class="op">&lt;</span> <span class="fl">1e-9</span>   <span class="co"># 3 dB more</span></span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>pc_low <span class="op">=</span> PredictedChannelInversion(<span class="kw">lambda</span> past: <span class="fl">1e-6</span>, history<span class="op">=</span><span class="dv">1</span>, target_snr_db<span class="op">=</span><span class="dv">10</span>, max_power<span class="op">=</span><span class="fl">1.0</span>)</span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>pc_low.allocate(<span class="fl">1.0</span>, <span class="fl">1.0</span>, link<span class="op">=</span>ab)</span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> pc_low.allocate(<span class="fl">1.0</span>, <span class="fl">1.0</span>, link<span class="op">=</span>ab) <span class="op">==</span> (<span class="fl">1e7</span>, <span class="va">False</span>)       <span class="co"># the predicted channel needs too much power</span></span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> PredictedChannelInversion(<span class="kw">lambda</span> past: <span class="op">-</span><span class="fl">1.0</span>, history<span class="op">=</span><span class="dv">1</span>).allocate(<span class="fl">1.0</span>, <span class="fl">1.0</span>, link<span class="op">=</span>ab)[<span class="dv">1</span>]  <span class="co"># fallback first</span></span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>neg <span class="op">=</span> PredictedChannelInversion(<span class="kw">lambda</span> past: <span class="op">-</span><span class="fl">1.0</span>, history<span class="op">=</span><span class="dv">1</span>)</span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a>neg.allocate(<span class="fl">1.0</span>, <span class="fl">1.0</span>, link<span class="op">=</span>ab)</span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> neg.allocate(<span class="fl">1.0</span>, <span class="fl">1.0</span>, link<span class="op">=</span>ab) <span class="op">==</span> (math.inf, <span class="va">False</span>)      <span class="co"># negative predictions are clipped to 0: not sent</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="with-a-map-and-reported-positions" class="level3">
+<h3 class="anchored" data-anchor-id="with-a-map-and-reported-positions">With a map and reported positions</h3>
+<p>The history of a link’s gains says little about the next gain when the nodes move far between transmissions (e.g. a whole grid cell, many wavelengths). A ray-traced map of the area says more, if the transmitter knows where both nodes are:</p>
+<ul>
+<li><strong>Its own position:</strong> the transmitter knows it.</li>
+<li><strong>The receiver’s:</strong> it is known as of its last report, e.g.&nbsp;its cell and heading sent along with its last message (a few bits).</li>
+</ul>
+<p><a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/power_control.html#mapchannelinversion"><code>MapChannelInversion</code></a> looks the map up at the transmitter’s position and at the cells the receiver can have reached since its report (<code>reachable</code>), and takes the weakest of those gains: a prediction that is robust to where the receiver went. With a fallback, e.g.&nbsp;<a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/power_control.html#predictedchannelinversion"><code>PredictedChannelInversion</code></a>, it covers the time before a receiver’s first report.</p>
+<p>The reports are taken from the map’s node positions, one round late: at every round (<code>update</code>), the positions of the previous round become the reported ones. <code>states</code> adds what <code>reachable</code> needs, e.g.&nbsp;headings, read at every round and reported the same way.</p>
+<p><strong>Results.</strong> Compared by the power each needs to reach Γ on a share of the transmissions perfect CSI can serve (the <a href="./examples/predicted_power.html">power control example</a> and stable-marl’s C3-WM tutorial):</p>
+<ul>
+<li><strong>History predictors</strong> (the last gain, or a linear fit of the last 4) reach Γ 90% of the time, but not 95%: their errors spread too widely.</li>
+<li><strong>The robust map lookup</strong> with the receiver’s heading reached 95% of them at 0.8× perfect CSI’s mean power on FindGoal’s ray-traced channel, and 99% at 1.4× in a synthetic room. C3-WM’s predictor needed 2.4× for 95%.</li>
+<li><strong>Without the heading,</strong> the receiver can be in any neighbouring cell, and the weakest of them is often far too pessimistic.</li>
+</ul>
+<div id="972842d4" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-13T17:07:34.850328+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-13T17:07:34.853805+00:00&quot;,&quot;total&quot;:0.003480750999983684}}" data-execution_count="15">
+<hr>
+<p><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/blob/main/comm_core/power_control.py#L203" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="mapchannelinversion" class="level3">
+<h3 class="anchored" data-anchor-id="mapchannelinversion">MapChannelInversion</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> MapChannelInversion(</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">map</span>, <span class="co"># The channel map: `gain_between(tx_position, rx_position)` and `node_positions` (e.g. `RayTracedFading`)</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>    reachable:Callable <span class="op">|</span> <span class="va">None</span><span class="op">=</span><span class="va">None</span>, <span class="co"># reachable(position, state) -&gt; positions the receiver can be at now; None: its reported one</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    states:Callable <span class="op">|</span> <span class="va">None</span><span class="op">=</span><span class="va">None</span>, <span class="co"># states() -&gt; {node: state} (e.g. headings), read at every round</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    target_snr_db:<span class="bu">float</span><span class="op">=</span><span class="fl">10.0</span>, <span class="co"># Target SNR at the receiver (Γ)</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    max_power:<span class="bu">float</span><span class="op">=</span>inf, <span class="co"># Power budget (ρ_max); more: not sent</span></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>    margin_db:<span class="bu">float</span><span class="op">=</span><span class="fl">0.0</span>, <span class="co"># Extra SNR aimed for, against the map's errors</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>    fallback:PowerControl <span class="op">|</span> <span class="va">None</span><span class="op">=</span><span class="va">None</span>, <span class="co"># Before a receiver's first report; None: the link's tx_power_w</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Channel inversion with the gain looked up in a map: the weakest gain over the cells the receiver can have reached since its last report.</em></p>
+</section>
+</div>
+<div id="30453963" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-13T17:07:34.853903+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-13T17:07:34.854503+00:00&quot;,&quot;total&quot;:0.0006033549999813204}}" data-execution_count="16">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> comm_core.propagation <span class="im">import</span> RayTracedFading</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="31badd27" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># a corridor of 5 cells; the gain falls 10 dB per cell</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>cells_1d <span class="op">=</span> [(x, <span class="dv">0</span>) <span class="cf">for</span> x <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">5</span>)]</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>G1 <span class="op">=</span> np.array([[<span class="dv">0</span> <span class="cf">if</span> r <span class="op">==</span> t <span class="cf">else</span> <span class="dv">10</span> <span class="op">**</span> (<span class="op">-</span>(<span class="dv">5</span> <span class="op">+</span> <span class="dv">1</span> <span class="op">*</span> <span class="bu">abs</span>(r <span class="op">-</span> t))) <span class="cf">for</span> t <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">5</span>)] <span class="cf">for</span> r <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">5</span>)])</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>corridor <span class="op">=</span> RayTracedFading(np.sqrt(G1), cells_1d)</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>step_right <span class="op">=</span> <span class="kw">lambda</span> pos, heading: [pos, (pos[<span class="dv">0</span>] <span class="op">+</span> heading, pos[<span class="dv">1</span>])]     <span class="co"># stay, or one cell in the heading</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>heading <span class="op">=</span> {<span class="st">'a'</span>: <span class="dv">1</span>, <span class="st">'b'</span>: <span class="dv">1</span>}</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>mc <span class="op">=</span> MapChannelInversion(corridor, reachable<span class="op">=</span>step_right, states<span class="op">=</span><span class="kw">lambda</span>: heading, target_snr_db<span class="op">=</span><span class="dv">10</span>, max_power<span class="op">=</span><span class="fl">1e6</span>,</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>                         fallback<span class="op">=</span>FixedPower(<span class="fl">0.5</span>))</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>ab <span class="op">=</span> Link(<span class="st">'a'</span>, <span class="st">'b'</span>)</span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>corridor.set_positions({<span class="st">'a'</span>: (<span class="dv">0</span>, <span class="dv">0</span>), <span class="st">'b'</span>: (<span class="dv">1</span>, <span class="dv">0</span>)})<span class="op">;</span> mc.update(<span class="fl">1.0</span>)</span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> mc.allocate(<span class="fl">1.0</span>, <span class="fl">1.0</span>, link<span class="op">=</span>ab) <span class="op">==</span> (<span class="fl">0.5</span>, <span class="va">True</span>) <span class="kw">and</span> mc.predicted <span class="kw">is</span> <span class="va">None</span>     <span class="co"># nothing reported yet: the fallback</span></span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>corridor.set_positions({<span class="st">'a'</span>: (<span class="dv">0</span>, <span class="dv">0</span>), <span class="st">'b'</span>: (<span class="dv">2</span>, <span class="dv">0</span>)})<span class="op">;</span> mc.update(<span class="fl">2.0</span>)                <span class="co"># b moved; its report says (1, 0)</span></span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>p, ok <span class="op">=</span> mc.allocate(<span class="fl">1.0</span>, <span class="fl">1.0</span>, link<span class="op">=</span>ab)</span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> mc.predicted <span class="op">==</span> corridor.gain_between((<span class="dv">0</span>, <span class="dv">0</span>), (<span class="dv">2</span>, <span class="dv">0</span>)) <span class="kw">and</span> <span class="bu">abs</span>(p <span class="op">-</span> <span class="dv">10</span> <span class="op">/</span> <span class="fl">1e-7</span>) <span class="op">&lt;</span> <span class="fl">1e-3</span>   <span class="co"># the weaker of (1, 0), (2, 0)</span></span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>heading[<span class="st">'b'</span>] <span class="op">=</span> <span class="op">-</span><span class="dv">1</span></span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>corridor.set_positions({<span class="st">'a'</span>: (<span class="dv">0</span>, <span class="dv">0</span>), <span class="st">'b'</span>: (<span class="dv">2</span>, <span class="dv">0</span>)})<span class="op">;</span> mc.update(<span class="fl">3.0</span>)                <span class="co"># reported: (2, 0), heading right</span></span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>corridor.set_positions({<span class="st">'a'</span>: (<span class="dv">0</span>, <span class="dv">0</span>), <span class="st">'b'</span>: (<span class="dv">1</span>, <span class="dv">0</span>)})<span class="op">;</span> mc.update(<span class="fl">4.0</span>)                <span class="co"># reported: (2, 0), heading left</span></span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>mc.allocate(<span class="fl">1.0</span>, <span class="fl">1.0</span>, link<span class="op">=</span>ab)</span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> mc.predicted <span class="op">==</span> corridor.gain_between((<span class="dv">0</span>, <span class="dv">0</span>), (<span class="dv">2</span>, <span class="dv">0</span>))                       <span class="co"># (1, 0) is stronger: (2, 0) counts</span></span>
+<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a>corridor.set_positions({<span class="st">'a'</span>: (<span class="dv">1</span>, <span class="dv">0</span>), <span class="st">'b'</span>: (<span class="dv">1</span>, <span class="dv">0</span>)})<span class="op">;</span> mc.update(<span class="fl">5.0</span>)                <span class="co"># a moved into b's reported cell</span></span>
+<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a>mc.allocate(<span class="fl">1.0</span>, <span class="fl">1.0</span>, link<span class="op">=</span>ab)</span>
+<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> mc.predicted <span class="op">==</span> corridor.gain_between((<span class="dv">1</span>, <span class="dv">0</span>), (<span class="dv">0</span>, <span class="dv">0</span>))                       <span class="co"># b can only be at (0, 0) then</span></span>
+<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a>mc.reset()</span>
+<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> mc.allocate(<span class="fl">1.0</span>, <span class="fl">1.0</span>, link<span class="op">=</span>ab) <span class="op">==</span> (<span class="fl">0.5</span>, <span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="in-a-channel" class="level3">
+<h3 class="anchored" data-anchor-id="in-a-channel">In a channel</h3>
+<p>A channel resets its power control with the network (a new episode), and passes it every round (<code>update</code>). Its pipeline gives the power control each transmission’s broadcast (<code>group</code>):</p>
+<div id="430b9536" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-13T17:07:34.855743+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-13T17:07:34.856364+00:00&quot;,&quot;total&quot;:0.0006254879999971763}}" data-execution_count="17">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> comm_core <span class="im">import</span> AnalyticalBackend, FullMeshTopology, IdealProtocol, Network, Node, SystemLevelChannel</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="6f0ee6b1" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>const <span class="op">=</span> <span class="kw">lambda</span> past: past[<span class="dv">0</span>]</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>ab <span class="op">=</span> Link(<span class="st">'a'</span>, <span class="st">'b'</span>)</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a><span class="co"># the channel resets it with the network (a new episode)</span></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>ch <span class="op">=</span> SystemLevelChannel(power_control<span class="op">=</span>PredictedChannelInversion(const, history<span class="op">=</span><span class="dv">1</span>, fallback_power<span class="op">=</span><span class="fl">0.5</span>))</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>t <span class="op">=</span> Transmission(Message(<span class="st">'a'</span>, <span class="st">'b'</span>, <span class="va">None</span>, size_bits<span class="op">=</span><span class="dv">8</span>), <span class="st">'a'</span>, <span class="st">'b'</span>, <span class="fl">0.0</span>)</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>ch.transmit(t, ab)<span class="op">;</span> ch.transmit(t, ab)</span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> ch.power_control.predicted <span class="op">==</span> <span class="fl">1.0</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>ch.reset(seed<span class="op">=</span><span class="dv">0</span>)</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> ch.power_control.predicted <span class="kw">is</span> <span class="va">None</span> <span class="kw">and</span> ch.transmit(t, ab).metadata[<span class="st">'tx_power'</span>] <span class="op">==</span> <span class="fl">0.5</span></span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a><span class="co"># rounds reach the power control: a static receiver is predicted exactly from the map</span></span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>static <span class="op">=</span> RayTracedFading(np.sqrt(G1), cells_1d, node_positions<span class="op">=</span>{<span class="st">'a'</span>: (<span class="dv">0</span>, <span class="dv">0</span>), <span class="st">'b'</span>: (<span class="dv">2</span>, <span class="dv">0</span>)})</span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>radio <span class="op">=</span> SystemLevelChannel(fading<span class="op">=</span>static, power_control<span class="op">=</span>MapChannelInversion(static, target_snr_db<span class="op">=</span><span class="dv">10</span>), noise_power<span class="op">=</span><span class="fl">1e-9</span>)</span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>net <span class="op">=</span> Network([Node(<span class="st">'a'</span>), Node(<span class="st">'b'</span>)], FullMeshTopology([<span class="st">'a'</span>, <span class="st">'b'</span>]), IdealProtocol(), AnalyticalBackend(radio))</span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a>snrs <span class="op">=</span> []</span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">3</span>):</span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a>    net.send(Message(<span class="st">'a'</span>, <span class="st">'b'</span>, <span class="va">None</span>, size_bits<span class="op">=</span><span class="dv">64</span>))</span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a>    snrs <span class="op">+=</span> [r.snr_db <span class="cf">for</span> r <span class="kw">in</span> net.step()]</span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> snrs[<span class="dv">0</span>] <span class="op">!=</span> <span class="dv">10</span> <span class="kw">and</span> <span class="bu">all</span>(<span class="bu">abs</span>(s <span class="op">-</span> <span class="dv">10</span>) <span class="op">&lt;</span> <span class="fl">1e-9</span> <span class="cf">for</span> s <span class="kw">in</span> snrs[<span class="dv">1</span>:])     <span class="co"># first round: the link's own power; then exact</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="18f66262" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co"># a broadcast through a network: both neighbours hear one signal, at the power the farther one needs</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>static <span class="op">=</span> RayTracedFading(np.sqrt(G1), cells_1d, node_positions<span class="op">=</span>{<span class="st">'a'</span>: (<span class="dv">0</span>, <span class="dv">0</span>), <span class="st">'b'</span>: (<span class="dv">1</span>, <span class="dv">0</span>), <span class="st">'c'</span>: (<span class="dv">3</span>, <span class="dv">0</span>)})</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>radio <span class="op">=</span> SystemLevelChannel(fading<span class="op">=</span>static, power_control<span class="op">=</span>ChannelInversion(target_snr_db<span class="op">=</span><span class="dv">10</span>), noise_power<span class="op">=</span><span class="fl">1e-9</span>)</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>net <span class="op">=</span> Network([Node(n) <span class="cf">for</span> n <span class="kw">in</span> <span class="st">'abc'</span>], FullMeshTopology(<span class="bu">list</span>(<span class="st">'abc'</span>)), IdealProtocol(), AnalyticalBackend(radio))</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>net.broadcast(<span class="st">'a'</span>, payload<span class="op">=</span><span class="dv">1</span>, size_bits<span class="op">=</span><span class="dv">64</span>)</span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>results <span class="op">=</span> {r.transmission.receiver: r <span class="cf">for</span> r <span class="kw">in</span> net.step()}</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> results[<span class="st">'b'</span>].metadata[<span class="st">'tx_power'</span>] <span class="op">==</span> results[<span class="st">'c'</span>].metadata[<span class="st">'tx_power'</span>] <span class="op">==</span> <span class="fl">1.0</span>     <span class="co"># |h|^2 = 1e-8 at c</span></span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="bu">abs</span>(results[<span class="st">'c'</span>].snr_db <span class="op">-</span> <span class="dv">10</span>) <span class="op">&lt;</span> <span class="fl">1e-9</span> <span class="kw">and</span> <span class="bu">abs</span>(results[<span class="st">'b'</span>].snr_db <span class="op">-</span> <span class="dv">30</span>) <span class="op">&lt;</span> <span class="fl">1e-9</span>    <span class="co"># b: 20 dB more than it needs</span></span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="bu">abs</span>(net.metrics.summary().total_energy <span class="op">-</span> <span class="dv">64</span>) <span class="op">&lt;</span> <span class="fl">1e-9</span>                               <span class="co"># charged once: P x 64 symbols</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/Ahmed-Khaled-Saleh\.github\.io\/comm-core");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div></div></footer></body></html>

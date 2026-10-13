@@ -1,0 +1,1415 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.19">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="Predicting the channel well enough to reach a target SNR with a chosen reliability, in layouts the predictor has never seen: what to learn from, how to set the margin, and when to withhold a transmission.">
+
+<title>Power control on new layouts – comm-core</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-bf27225e3a48a9273f3daa8f8e829971.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-f2788e636de456f6409e966386820849.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="../styles.css">
+<meta property="og:title" content="Power control on new layouts – comm-core">
+<meta property="og:description" content="Predicting the channel well enough to reach a target SNR with a chosen reliability, in layouts the predictor has never seen: what to learn from, how to set the margin, and when to withhold a transmission.">
+<meta property="og:image" content="https://Ahmed-Khaled-Saleh.github.io/comm-core/examples/07_power_across_layouts_files/figure-html/cell-5-output-1.png">
+<meta property="og:site_name" content="comm-core">
+<meta property="og:image:height" content="256">
+<meta property="og:image:width" content="954">
+<meta name="twitter:title" content="Power control on new layouts – comm-core">
+<meta name="twitter:description" content="Predicting the channel well enough to reach a target SNR with a chosen reliability, in layouts the predictor has never seen: what to learn from, how to set the margin, and when to withhold a transmission.">
+<meta name="twitter:image" content="https://Ahmed-Khaled-Saleh.github.io/comm-core/examples/07_power_across_layouts_files/figure-html/cell-5-output-1.png">
+<meta name="twitter:image-height" content="256">
+<meta name="twitter:image-width" content="954">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+
+<body class="nav-sidebar floating nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">comm-core</span>
+    </a>
+  </div>
+        <div class="quarto-navbar-tools tools-end">
+</div>
+          <div id="quarto-search" class="" title="Search"></div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../examples/sharing.html">Examples</a></li><li class="breadcrumb-item"><a href="../examples/power_across_layouts.html">Power control on new layouts</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">comm-core</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../principles.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Design principles</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../design.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Architecture</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Examples</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../examples/sharing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Agents sharing what they see</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../examples/medium_access.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Medium access and interference</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../examples/continuous_positions.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Channels at continuous positions</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../examples/fidelity.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Levels of fidelity</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../examples/robot_control.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Robot control over Wi-Fi</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../examples/predicted_power.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Power control without channel knowledge</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../examples/power_across_layouts.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Power control on new layouts</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../examples/map_mismatch.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">When the radio map is wrong</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../examples/c3wm_blocks.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">C3-WM’s link, built from blocks</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../examples/uav_ohjb.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Remote UAV control, built from blocks</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true">
+ <span class="menu-text">Core</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../core.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Core</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../topology.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Topology</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../channel.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Channel</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../protocol.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Protocol</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../block.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Blocks</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../backend.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Backend</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../network.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Network</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../metrics.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Metrics</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../init.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Public API</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true">
+ <span class="menu-text">Radio</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../propagation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Propagation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../power_control.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Power control</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../interference.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Interference</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../phy_abstraction.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">PHY abstraction</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../link_adaptation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Link adaptation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../radio.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Radio channels</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../system.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">System-level simulation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../link.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Link-level simulation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../sionna_rt.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Sionna RT channel</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../sionna_sys.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Sionna SYS</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../sionna_phy.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Sionna PHY</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#the-layouts" id="toc-the-layouts" class="nav-link active" data-scroll-target="#the-layouts">The layouts</a></li>
+  <li><a href="#the-agents" id="toc-the-agents" class="nav-link" data-scroll-target="#the-agents">The agents</a></li>
+  <li><a href="#what-the-transmitter-knows" id="toc-what-the-transmitter-knows" class="nav-link" data-scroll-target="#what-the-transmitter-knows">What the transmitter knows</a></li>
+  <li><a href="#the-predictors" id="toc-the-predictors" class="nav-link" data-scroll-target="#the-predictors">The predictors</a></li>
+  <li><a href="#judging-a-predictor" id="toc-judging-a-predictor" class="nav-link" data-scroll-target="#judging-a-predictor">Judging a predictor</a></li>
+  <li><a href="#on-new-layouts" id="toc-on-new-layouts" class="nav-link" data-scroll-target="#on-new-layouts">On new layouts</a></li>
+  <li><a href="#the-link-budget" id="toc-the-link-budget" class="nav-link" data-scroll-target="#the-link-budget">The link budget</a></li>
+  <li><a href="#what-the-agents-receive" id="toc-what-the-agents-receive" class="nav-link" data-scroll-target="#what-the-agents-receive">What the agents receive</a></li>
+  <li><a href="#when-to-withhold-a-transmission" id="toc-when-to-withhold-a-transmission" class="nav-link" data-scroll-target="#when-to-withhold-a-transmission">When to withhold a transmission</a></li>
+  <li><a href="#the-same-through-a-network" id="toc-the-same-through-a-network" class="nav-link" data-scroll-target="#the-same-through-a-network">The same through a network</a></li>
+  <li><a href="#in-short" id="toc-in-short" class="nav-link" data-scroll-target="#in-short">In short</a></li>
+  </ul>
+<div class="toc-actions"><ul><li><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div><div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="power_across_layouts.html.md"><i class="bi bi-file-code"></i>Markdown</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../examples/sharing.html">Examples</a></li><li class="breadcrumb-item"><a href="../examples/power_across_layouts.html">Power control on new layouts</a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title">Power control on new layouts</h1>
+</div>
+
+<div>
+  <div class="description">
+    Predicting the channel well enough to reach a target SNR with a chosen reliability, in layouts the predictor has never seen: what to learn from, how to set the margin, and when to withhold a transmission.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<!-- WARNING: THIS FILE WAS AUTOGENERATED! DO NOT EDIT! -->
+<p><a href="../examples/predicted_power.html">Power control without channel knowledge</a> compares predictors in one fixed room. In an application, the layout changes from episode to episode and the agents start anywhere, so a predictor has to work in layouts it has never seen. This example takes the same link, C3-WM’s (49 codebook tokens of 8 bits, uncoded BPSK, channel inversion to a target SNR <code>Γ</code>), in ray-traced layouts of MultiGrid’s FindGoal, and asks how to set the power so that a chosen share <code>1 − ε</code> of the transmissions reach <code>Γ</code>, with as little power as possible:</p>
+<pre class="text"><code>minimize ρ   subject to   P(SNR(ρ) ≥ Γ) ≥ 1 − ε,   0 ≤ ρ ≤ ρ_max</code></pre>
+<p>The transmitter does not know the current gain <code>g = |h|²</code>. It predicts it (<code>ĝ</code>) from what it knows, and sends at <code>ρ̂ = κ Γσ²/ĝ</code>, with a margin <code>κ</code> against the prediction’s errors. When <code>ρ̂</code> exceeds <code>ρ_max</code>, it either withholds the transmission or sends at <code>ρ_max</code> anyway.</p>
+<p>The questions: what to predict from (the link’s past gains, the agents’ moves, the layout’s geometry, a ray-traced map), how to set the margin for layouts not seen yet, and when to withhold. Everything is fit on some layouts, tuned on others, and judged on layouts neither saw.</p>
+<div id="33ef7650" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> math</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sklearn.ensemble <span class="im">import</span> HistGradientBoostingRegressor</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> comm_core <span class="im">import</span> <span class="op">*</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<section id="the-layouts" class="level2">
+<h2 class="anchored" data-anchor-id="the-layouts">The layouts</h2>
+<p>40 layouts of MultiGrid’s FindGoal (9 × 9, walls scattered inside), each ray-traced with Sionna RT at 2.4 GHz (5 bounces) between every pair of free cells. The file holds each pair’s gain <code>|h|²</code> in dB, the free cells and the wall grid. It was made with stable-marl’s <code>trace_layouts</code> (Sionna RT through <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/sionna_rt.html#trace_paths"><code>trace_paths</code></a>), then the gains converted to dB:</p>
+<div id="0fcb629d" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> stable_marl.envs.multigrid.sionna_export <span class="im">import</span> trace_layouts</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>trace_layouts(<span class="st">'MultiGrid-FindGoal-15x15-v0'</span>, [<span class="op">*</span><span class="bu">range</span>(<span class="dv">30</span>), <span class="op">*</span><span class="bu">range</span>(<span class="dv">100</span>, <span class="dv">110</span>)], <span class="st">'layouts'</span>,</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>              env_kwargs<span class="op">=</span><span class="bu">dict</span>(agents<span class="op">=</span><span class="dv">2</span>, size<span class="op">=</span><span class="dv">9</span>, num_obstacles<span class="op">=</span><span class="dv">0</span>), frequency<span class="op">=</span><span class="fl">2.4e9</span>, max_depth<span class="op">=</span><span class="dv">5</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="48a2f058" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>data <span class="op">=</span> np.load(<span class="st">'data/findgoal_layouts.npz'</span>)</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>DIRS <span class="op">=</span> [(<span class="dv">1</span>, <span class="dv">0</span>), (<span class="dv">0</span>, <span class="dv">1</span>), (<span class="op">-</span><span class="dv">1</span>, <span class="dv">0</span>), (<span class="dv">0</span>, <span class="op">-</span><span class="dv">1</span>)]</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Layout:</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">"One ray-traced layout: the gain between any two free cells, and the walls between them."</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, k):</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.seed <span class="op">=</span> <span class="bu">int</span>(data[<span class="st">'seeds'</span>][k])</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.cells <span class="op">=</span> [<span class="bu">tuple</span>(<span class="bu">int</span>(v) <span class="cf">for</span> v <span class="kw">in</span> c) <span class="cf">for</span> c <span class="kw">in</span> data[<span class="st">'cells'</span>][k]]</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.idx <span class="op">=</span> {c: i <span class="cf">for</span> i, c <span class="kw">in</span> <span class="bu">enumerate</span>(<span class="va">self</span>.cells)}</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.G <span class="op">=</span> <span class="dv">10</span> <span class="op">**</span> (data[<span class="st">'gain_db'</span>][k].astype(<span class="bu">float</span>) <span class="op">/</span> <span class="dv">10</span>)               <span class="co"># G[rx, tx]</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.walls <span class="op">=</span> data[<span class="st">'walls'</span>][k]                                       <span class="co"># walls[x, y]</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> gain(<span class="va">self</span>, tx, rx):</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">self</span>.G[<span class="va">self</span>.idx[rx], <span class="va">self</span>.idx[tx]]</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> geometry(<span class="va">self</span>, a, b):</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        <span class="co">"Distance (cells) and the number of wall cells the straight line between the two cell centres crosses."</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>        n <span class="op">=</span> <span class="bu">max</span>(<span class="bu">int</span>(<span class="bu">abs</span>(a[<span class="dv">0</span>] <span class="op">-</span> b[<span class="dv">0</span>]) <span class="op">+</span> <span class="bu">abs</span>(a[<span class="dv">1</span>] <span class="op">-</span> b[<span class="dv">1</span>])) <span class="op">*</span> <span class="dv">4</span>, <span class="dv">1</span>)</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>        xs, ys <span class="op">=</span> np.linspace(a[<span class="dv">0</span>], b[<span class="dv">0</span>], n <span class="op">+</span> <span class="dv">1</span>), np.linspace(a[<span class="dv">1</span>], b[<span class="dv">1</span>], n <span class="op">+</span> <span class="dv">1</span>)</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>        crossed <span class="op">=</span> {(<span class="bu">int</span>(<span class="bu">round</span>(x)), <span class="bu">int</span>(<span class="bu">round</span>(y))) <span class="cf">for</span> x, y <span class="kw">in</span> <span class="bu">zip</span>(xs, ys)} <span class="op">-</span> {a, b}</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> math.hypot(a[<span class="dv">0</span>] <span class="op">-</span> b[<span class="dv">0</span>], a[<span class="dv">1</span>] <span class="op">-</span> b[<span class="dv">1</span>]), <span class="bu">int</span>(<span class="bu">sum</span>(<span class="va">self</span>.walls[c] <span class="cf">for</span> c <span class="kw">in</span> crossed))</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>layouts <span class="op">=</span> {<span class="bu">int</span>(s): Layout(k) <span class="cf">for</span> k, s <span class="kw">in</span> <span class="bu">enumerate</span>(data[<span class="st">'seeds'</span>])}</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>FIT, CALIBRATION, TEST <span class="op">=</span> <span class="bu">range</span>(<span class="dv">0</span>, <span class="dv">24</span>), <span class="bu">range</span>(<span class="dv">24</span>, <span class="dv">30</span>), <span class="bu">range</span>(<span class="dv">100</span>, <span class="dv">110</span>)</span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f'</span><span class="sc">{</span><span class="bu">len</span>(layouts)<span class="sc">}</span><span class="ss"> layouts, </span><span class="sc">{</span><span class="bu">len</span>(layouts[<span class="dv">0</span>].cells)<span class="sc">}</span><span class="ss"> free cells each'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>40 layouts, 39 free cells each</code></pre>
+</div>
+</div>
+<div id="7e92176a" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">4</span>, figsize<span class="op">=</span>(<span class="dv">13</span>, <span class="fl">3.4</span>))</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> ax, seed <span class="kw">in</span> <span class="bu">zip</span>(axes, (<span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">100</span>, <span class="dv">101</span>)):</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    lay, tx <span class="op">=</span> layouts[seed], layouts[seed].cells[<span class="dv">0</span>]</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    img <span class="op">=</span> np.full(lay.walls.shape, np.nan)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> c <span class="kw">in</span> lay.cells:</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>        img[c] <span class="op">=</span> <span class="dv">10</span> <span class="op">*</span> np.log10(lay.gain(tx, c)) <span class="cf">if</span> c <span class="op">!=</span> tx <span class="cf">else</span> np.nan</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    im <span class="op">=</span> ax.imshow(img.T, origin<span class="op">=</span><span class="st">'lower'</span>, cmap<span class="op">=</span><span class="st">'viridis'</span>, vmin<span class="op">=-</span><span class="dv">110</span>, vmax<span class="op">=-</span><span class="dv">40</span>)</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    ax.imshow(np.where(lay.walls.T, <span class="fl">1.0</span>, np.nan), origin<span class="op">=</span><span class="st">'lower'</span>, cmap<span class="op">=</span><span class="st">'Greys'</span>, vmin<span class="op">=</span><span class="dv">0</span>, vmax<span class="op">=</span><span class="fl">1.5</span>)</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    ax.plot(<span class="op">*</span>tx, <span class="st">'r*'</span>, ms<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>    ax.<span class="bu">set</span>(title<span class="op">=</span><span class="ss">f'layout </span><span class="sc">{</span>seed<span class="sc">}</span><span class="ss">'</span> <span class="op">+</span> (<span class="st">' (unseen)'</span> <span class="cf">if</span> seed <span class="op">&gt;=</span> <span class="dv">100</span> <span class="cf">else</span> <span class="st">''</span>), xticks<span class="op">=</span>[], yticks<span class="op">=</span>[])</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>fig.colorbar(im, ax<span class="op">=</span>axes, label<span class="op">=</span><span class="st">'gain from ★ (dB)'</span>, shrink<span class="op">=</span><span class="fl">0.85</span>)</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="07_power_across_layouts_files/figure-html/cell-5-output-1.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="the-agents" class="level2">
+<h2 class="anchored" data-anchor-id="the-agents">The agents</h2>
+<p>Two agents move at random, as with a random policy in FindGoal: at each step each one turns left, turns right, steps forward (unless a wall or the other agent is there) or does nothing. They start in distinct random cells with random headings. (FindGoal also has a goal, which takes an agent off the grid; there is none here.)</p>
+<div id="66bb6384" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>STEPS, HISTORY, ROLLOUTS <span class="op">=</span> <span class="dv">60</span>, <span class="dv">4</span>, <span class="dv">5</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> walk(lay, seed):</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">"One episode: per step, both agents' cells and headings."</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    rng <span class="op">=</span> np.random.default_rng(seed)</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    free <span class="op">=</span> <span class="bu">set</span>(lay.cells)</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    pos <span class="op">=</span> [lay.cells[k] <span class="cf">for</span> k <span class="kw">in</span> rng.choice(<span class="bu">len</span>(lay.cells), <span class="dv">2</span>, replace<span class="op">=</span><span class="va">False</span>)]</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    head <span class="op">=</span> [<span class="bu">int</span>(h) <span class="cf">for</span> h <span class="kw">in</span> rng.integers(<span class="dv">4</span>, size<span class="op">=</span><span class="dv">2</span>)]</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    out <span class="op">=</span> []</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(STEPS):</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>        out.append((<span class="bu">tuple</span>(pos), <span class="bu">tuple</span>(head)))</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> a <span class="kw">in</span> rng.permutation(<span class="dv">2</span>):</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>            action <span class="op">=</span> rng.integers(<span class="dv">4</span>)                                     <span class="co"># left, right, forward, nothing</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> action <span class="op">&lt;</span> <span class="dv">2</span>:</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>                head[a] <span class="op">=</span> (head[a] <span class="op">+</span> (<span class="dv">1</span> <span class="cf">if</span> action <span class="cf">else</span> <span class="op">-</span><span class="dv">1</span>)) <span class="op">%</span> <span class="dv">4</span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>            <span class="cf">elif</span> action <span class="op">==</span> <span class="dv">2</span>:</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>                ahead <span class="op">=</span> (pos[a][<span class="dv">0</span>] <span class="op">+</span> DIRS[head[a]][<span class="dv">0</span>], pos[a][<span class="dv">1</span>] <span class="op">+</span> DIRS[head[a]][<span class="dv">1</span>])</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span> ahead <span class="kw">in</span> free <span class="kw">and</span> ahead <span class="op">!=</span> pos[<span class="dv">1</span> <span class="op">-</span> a]:</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>                    pos[a] <span class="op">=</span> ahead</span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> out</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="what-the-transmitter-knows" class="level2">
+<h2 class="anchored" data-anchor-id="what-the-transmitter-knows">What the transmitter knows</h2>
+<p>For each directed link and step <code>t ≥ 4</code>, what transmitter <code>j</code> knows when it sends to <code>i</code>:</p>
+<ul>
+<li><strong>The link’s last 4 gains,</strong> fed back by the receiver (C3-WM’s <code>x̃</code>).</li>
+<li><strong>Whether anyone moved:</strong> the transmitter itself, this step (its own move), and the receiver, a step ago (its report arrives with a step’s delay, like the gains).</li>
+<li><strong>Where the receiver was a step ago, and its heading.</strong> Since then, it has stayed or stepped ahead: the receiver’s <em>possible cells</em>.</li>
+<li><strong>The layout’s walls</strong>, for the geometry between the two agents: the distance and the number of walls in between.</li>
+</ul>
+<p>Optionally, small-scale fading on top of the ray-traced gain: Rayleigh, redrawn whenever an agent moves (it moves many wavelengths), and drifting slowly while both stand still.</p>
+<div id="4a5240ba" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>db <span class="op">=</span> <span class="kw">lambda</span> g: <span class="dv">10</span> <span class="op">*</span> np.log10(np.maximum(g, <span class="fl">1e-30</span>))</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> fading(episode, seed, rho<span class="op">=</span><span class="fl">0.95</span>):</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">"|g_t|² of a pair's Rayleigh fading: redrawn when an agent moves, drifting slowly while both stand still."</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    rng <span class="op">=</span> np.random.default_rng(<span class="dv">10_000</span> <span class="op">+</span> seed)</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    draw <span class="op">=</span> <span class="kw">lambda</span>: (rng.standard_normal() <span class="op">+</span> <span class="ot">1j</span> <span class="op">*</span> rng.standard_normal()) <span class="op">/</span> np.sqrt(<span class="dv">2</span>)</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>    g, out <span class="op">=</span> draw(), []</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> t <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(episode)):</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> t <span class="kw">and</span> episode[t][<span class="dv">0</span>] <span class="op">!=</span> episode[t <span class="op">-</span> <span class="dv">1</span>][<span class="dv">0</span>]:</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>            g <span class="op">=</span> draw()</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">elif</span> t:</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>            g <span class="op">=</span> rho <span class="op">*</span> g <span class="op">+</span> np.sqrt(<span class="dv">1</span> <span class="op">-</span> rho <span class="op">**</span> <span class="dv">2</span>) <span class="op">*</span> draw()</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>        out.append(<span class="bu">abs</span>(g) <span class="op">**</span> <span class="dv">2</span>)</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> np.array(out)</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> samples(seeds, faded):</span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">"Per directed link and step: what the transmitter knows, and the true gain."</span></span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>    out <span class="op">=</span> []</span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> seed <span class="kw">in</span> seeds:</span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>        lay <span class="op">=</span> layouts[seed]</span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> k <span class="kw">in</span> <span class="bu">range</span>(ROLLOUTS):</span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>            episode <span class="op">=</span> walk(lay, <span class="dv">1000</span> <span class="op">*</span> seed <span class="op">+</span> k)</span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>            fade <span class="op">=</span> fading(episode, <span class="dv">1000</span> <span class="op">*</span> seed <span class="op">+</span> k) <span class="cf">if</span> faded <span class="cf">else</span> np.ones(<span class="bu">len</span>(episode))</span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> j, i <span class="kw">in</span> ((<span class="dv">0</span>, <span class="dv">1</span>), (<span class="dv">1</span>, <span class="dv">0</span>)):</span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>                g <span class="op">=</span> [lay.gain(cells[j], cells[i]) <span class="op">*</span> f <span class="cf">for</span> (cells, _), f <span class="kw">in</span> <span class="bu">zip</span>(episode, fade)]</span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>                <span class="cf">for</span> t <span class="kw">in</span> <span class="bu">range</span>(HISTORY, <span class="bu">len</span>(episode)):</span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a>                    (now, _), (before, heads), (earlier, _) <span class="op">=</span> episode[t], episode[t <span class="op">-</span> <span class="dv">1</span>], episode[t <span class="op">-</span> <span class="dv">2</span>]</span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>                    ahead <span class="op">=</span> (before[i][<span class="dv">0</span>] <span class="op">+</span> DIRS[heads[i]][<span class="dv">0</span>], before[i][<span class="dv">1</span>] <span class="op">+</span> DIRS[heads[i]][<span class="dv">1</span>])</span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a>                    possible <span class="op">=</span> [c <span class="cf">for</span> c <span class="kw">in</span> (before[i], ahead) <span class="cf">if</span> c <span class="kw">in</span> lay.idx <span class="kw">and</span> c <span class="op">!=</span> now[j]] <span class="kw">or</span> [before[i]]</span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a>                    out.append(<span class="bu">dict</span>(lay<span class="op">=</span>lay, tx<span class="op">=</span>now[j], rx<span class="op">=</span>now[i], possible<span class="op">=</span>possible, past<span class="op">=</span>np.array(g[t <span class="op">-</span> HISTORY:t][::<span class="op">-</span><span class="dv">1</span>]),</span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a>                                    moved<span class="op">=</span>[<span class="bu">float</span>(now[j] <span class="op">!=</span> before[j]), <span class="bu">float</span>(before[i] <span class="op">!=</span> earlier[i])], gain<span class="op">=</span>g[t]))</span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> out</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="the-predictors" class="level2">
+<h2 class="anchored" data-anchor-id="the-predictors">The predictors</h2>
+<p>Each predicts the gain <code>ĝ</code> of the current transmission:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>predictor</th>
+<th>uses</th>
+<th>model</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>C3-WM’s</td>
+<td>last 4 gains</td>
+<td>linear in <code>|h|²</code> (<a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/power_control.html#fit_gain_predictor"><code>fit_gain_predictor</code></a>, eq. 24)</td>
+</tr>
+<tr class="even">
+<td>C3-WM’s, in dB</td>
+<td>last 4 gains</td>
+<td>linear in dB (<code>fit_gain_predictor(..., domain='db')</code>)</td>
+</tr>
+<tr class="odd">
+<td>history quantile</td>
+<td>last 4 gains, moves</td>
+<td>gradient-boosted trees, 5% quantile of the gain in dB</td>
+</tr>
+<tr class="even">
+<td>geometry + history quantile</td>
+<td>the same, and the geometry to each possible cell</td>
+<td>gradient-boosted trees, 5% quantile; the lowest over the possible cells</td>
+</tr>
+<tr class="odd">
+<td>geometry + history mean</td>
+<td>the same</td>
+<td>gradient-boosted trees, mean (in dB); the lowest over the possible cells</td>
+</tr>
+<tr class="even">
+<td>digital twin</td>
+<td>a ray-traced map of the layout</td>
+<td>the map’s lowest gain over the possible cells</td>
+</tr>
+</tbody>
+</table>
+<p>The quantile models predict a gain the true one exceeds 95% of the time: they are cautious by construction. The geometry models are trained on the receiver’s actual cell, and used on each of its possible cells. The digital twin needs every new layout ray-traced; it is the reference.</p>
+<div id="e37e8f5e" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> features(r, cell):</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    distance, walls <span class="op">=</span> r[<span class="st">'lay'</span>].geometry(r[<span class="st">'tx'</span>], cell)</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [math.log10(<span class="bu">max</span>(distance, <span class="fl">0.5</span>)), distance, walls] <span class="op">+</span> <span class="bu">list</span>(db(r[<span class="st">'past'</span>])) <span class="op">+</span> r[<span class="st">'moved'</span>]</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> lowest(model):</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">"The model's prediction for each of the receiver's possible cells: the lowest."</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> predict(rs):</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>        pairs <span class="op">=</span> [(k, c) <span class="cf">for</span> k, r <span class="kw">in</span> <span class="bu">enumerate</span>(rs) <span class="cf">for</span> c <span class="kw">in</span> r[<span class="st">'possible'</span>]]</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>        out <span class="op">=</span> np.full(<span class="bu">len</span>(rs), np.inf)</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>        np.minimum.at(out, [k <span class="cf">for</span> k, _ <span class="kw">in</span> pairs], model.predict(np.array([features(rs[k], c) <span class="cf">for</span> k, c <span class="kw">in</span> pairs])))</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dv">10</span> <span class="op">**</span> (out <span class="op">/</span> <span class="dv">10</span>)</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> predict</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> predictors(fit):</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>    <span class="co">"name -&gt; predict(samples) -&gt; ĝ; everything learned from `fit` only."</span></span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>    y <span class="op">=</span> db(np.array([r[<span class="st">'gain'</span>] <span class="cf">for</span> r <span class="kw">in</span> fit]))</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>    sequences <span class="op">=</span> [np.r_[r[<span class="st">'past'</span>][::<span class="op">-</span><span class="dv">1</span>], r[<span class="st">'gain'</span>]] <span class="cf">for</span> r <span class="kw">in</span> fit]</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>    psi, psi_db <span class="op">=</span> fit_gain_predictor(sequences, history<span class="op">=</span>HISTORY), fit_gain_predictor(sequences, history<span class="op">=</span>HISTORY, domain<span class="op">=</span><span class="st">'db'</span>)</span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>    trees <span class="op">=</span> <span class="kw">lambda</span> <span class="op">**</span>kw: HistGradientBoostingRegressor(max_iter<span class="op">=</span><span class="dv">400</span>, learning_rate<span class="op">=</span><span class="fl">0.05</span>, early_stopping<span class="op">=</span><span class="va">False</span>, random_state<span class="op">=</span><span class="dv">0</span>, <span class="op">**</span>kw)</span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>    history <span class="op">=</span> <span class="kw">lambda</span> rs: np.c_[db(np.stack([r[<span class="st">'past'</span>] <span class="cf">for</span> r <span class="kw">in</span> rs])), [r[<span class="st">'moved'</span>] <span class="cf">for</span> r <span class="kw">in</span> rs]]</span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>    quantile <span class="op">=</span> trees(loss<span class="op">=</span><span class="st">'quantile'</span>, quantile<span class="op">=</span><span class="fl">0.05</span>).fit(history(fit), y)</span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>    X <span class="op">=</span> np.array([features(r, r[<span class="st">'rx'</span>]) <span class="cf">for</span> r <span class="kw">in</span> fit])</span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> {</span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>        <span class="st">"C3-WM's"</span>: <span class="kw">lambda</span> rs: np.array([<span class="bu">max</span>(psi(r[<span class="st">'past'</span>]), <span class="fl">0.0</span>) <span class="cf">for</span> r <span class="kw">in</span> rs]),</span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>        <span class="st">"C3-WM's, in dB"</span>: <span class="kw">lambda</span> rs: np.array([psi_db(r[<span class="st">'past'</span>]) <span class="cf">for</span> r <span class="kw">in</span> rs]),</span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a>        <span class="st">'history quantile'</span>: <span class="kw">lambda</span> rs: <span class="dv">10</span> <span class="op">**</span> (quantile.predict(history(rs)) <span class="op">/</span> <span class="dv">10</span>),</span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a>        <span class="st">'geometry + history quantile'</span>: lowest(trees(loss<span class="op">=</span><span class="st">'quantile'</span>, quantile<span class="op">=</span><span class="fl">0.05</span>).fit(X, y)),</span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>        <span class="st">'geometry + history mean'</span>: lowest(trees(loss<span class="op">=</span><span class="st">'squared_error'</span>).fit(X, y)),</span>
+<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>        <span class="st">'digital twin'</span>: <span class="kw">lambda</span> rs: np.array([<span class="bu">min</span>(r[<span class="st">'lay'</span>].gain(r[<span class="st">'tx'</span>], c) <span class="cf">for</span> c <span class="kw">in</span> r[<span class="st">'possible'</span>]) <span class="cf">for</span> r <span class="kw">in</span> rs]),</span>
+<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a>    }</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="judging-a-predictor" class="level2">
+<h2 class="anchored" data-anchor-id="judging-a-predictor">Judging a predictor</h2>
+<p>A transmission is <em>servable</em> if perfect CSI could deliver it: its gain is at least <code>g_min = Γσ²/ρ_max</code>. A predictor is judged by two numbers:</p>
+<ul>
+<li><strong>Reliability:</strong> the share of the servable transmissions that reach <code>Γ</code>.</li>
+<li><strong>Power:</strong> the mean transmit power, relative to perfect CSI’s, which spends exactly <code>Γσ²/g</code> on each servable transmission and nothing on the others.</li>
+</ul>
+<p>Only high targets (95% and 99%) are compared: at lower ones, a predictor can look cheap by giving up the weakest links, which take most of the power.</p>
+<p>Each predictor is deployed with a margin <code>κ</code>, <code>ρ̂ = 10^(κ/10) Γσ²/ĝ</code>, and a scheduling threshold <code>τ</code>: the transmission is sent if <code>ρ̂ ≤ 10^(τ/10) ρ_max</code>, at <code>min(ρ̂, ρ_max)</code>, and withheld otherwise. <code>τ = 0</code> is C3-WM’s rule (<code>δ = 1(ρ̂ ≤ ρ_max)</code>); <code>τ = ∞</code> never withholds (best effort). <code>κ</code>, and <code>τ</code> when it is tuned, are chosen on calibration layouts: the cheapest pair that reaches the target there. The link budget: <code>Γ = 10 dB</code>, <code>σ² = −94 dBm</code>, <code>ρ_max = 20 dBm</code>.</p>
+<div id="c3b6f372" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>SNR_TARGET_DB, NOISE_DBM, MAX_POWER_DBM <span class="op">=</span> <span class="fl">10.0</span>, <span class="op">-</span><span class="fl">94.0</span>, <span class="fl">20.0</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>G_MIN <span class="op">=</span> <span class="dv">10</span> <span class="op">**</span> ((SNR_TARGET_DB <span class="op">+</span> NOISE_DBM <span class="op">-</span> MAX_POWER_DBM) <span class="op">/</span> <span class="dv">10</span>)      <span class="co"># Γσ²/ρ_max</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>MARGINS <span class="op">=</span> np.arange(<span class="op">-</span><span class="dv">10</span>, <span class="fl">40.01</span>, <span class="fl">0.25</span>)                                 <span class="co"># κ, dB</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>TAUS <span class="op">=</span> (<span class="fl">0.0</span>, <span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>, <span class="dv">4</span>, <span class="dv">5</span>, <span class="dv">6</span>, <span class="dv">8</span>, <span class="dv">10</span>, <span class="dv">12</span>, <span class="dv">15</span>, <span class="dv">20</span>, <span class="dv">25</span>, <span class="dv">30</span>, math.inf)    <span class="co"># τ, dB</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f'g_min = </span><span class="sc">{</span>db(G_MIN)<span class="sc">:.0f}</span><span class="ss"> dB'</span>)</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> outcome(estimate, gain, g_min<span class="op">=</span>G_MIN, tau<span class="op">=</span><span class="fl">0.0</span>):</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Per margin κ: the share of the servable transmissions reaching Γ, the mean power (× perfect CSI's), the share</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="co">    withheld, and the per-transmission power (in units of Γσ²). τ: withhold when ρ̂ &gt; τ ρ_max (dB); inf: never."""</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>    max_power, servable, need <span class="op">=</span> <span class="dv">1</span> <span class="op">/</span> g_min, gain <span class="op">&gt;=</span> g_min, <span class="dv">1</span> <span class="op">/</span> gain</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>    rho <span class="op">=</span> <span class="dv">10</span> <span class="op">**</span> (MARGINS[:, <span class="va">None</span>] <span class="op">/</span> <span class="dv">10</span>) <span class="op">/</span> np.maximum(estimate, <span class="fl">1e-30</span>)[<span class="va">None</span>, :]</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>    sent <span class="op">=</span> rho <span class="op">&lt;=</span> max_power <span class="op">*</span> <span class="dv">10</span> <span class="op">**</span> (tau <span class="op">/</span> <span class="dv">10</span>) <span class="cf">if</span> np.isfinite(tau) <span class="cf">else</span> np.ones_like(rho, <span class="bu">bool</span>)</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>    power <span class="op">=</span> np.where(sent, np.minimum(rho, max_power), <span class="dv">0</span>)</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>    reached <span class="op">=</span> sent <span class="op">&amp;</span> (power <span class="op">&gt;=</span> need <span class="op">*</span> (<span class="dv">1</span> <span class="op">-</span> <span class="fl">1e-9</span>))</span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>    perfect <span class="op">=</span> np.where(servable, need, <span class="dv">0</span>).mean()</span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> reached[:, servable].mean(<span class="dv">1</span>), power.mean(<span class="dv">1</span>) <span class="op">/</span> perfect, <span class="dv">1</span> <span class="op">-</span> sent.mean(<span class="dv">1</span>), power</span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> deploy(name, faded, target, g_min<span class="op">=</span>G_MIN, taus<span class="op">=</span>(<span class="fl">0.0</span>,)):</span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""κ (and τ, from `taus`) chosen on the calibration layouts, the cheapest reaching `target` there (else the most</span></span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a><span class="co">    reliable); then used on the unseen layouts."""</span></span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>    (cal, cal_gain), (test, test_gain) <span class="op">=</span> runs[faded][name]</span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>    best <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> tau <span class="kw">in</span> taus:</span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>        reached, power, _, _ <span class="op">=</span> outcome(cal, cal_gain, g_min, tau)</span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> k <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(MARGINS)):</span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a>            key <span class="op">=</span> (reached[k] <span class="op">&gt;=</span> target, <span class="op">-</span>power[k] <span class="cf">if</span> reached[k] <span class="op">&gt;=</span> target <span class="cf">else</span> reached[k])</span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> best <span class="kw">is</span> <span class="va">None</span> <span class="kw">or</span> key <span class="op">&gt;</span> best[<span class="dv">0</span>]:</span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a>                best <span class="op">=</span> (key, tau, k)</span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a>    (met, _), tau, k <span class="op">=</span> best</span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a>    reached, power, withheld, per_transmission <span class="op">=</span> outcome(test, test_gain, g_min, tau)</span>
+<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">dict</span>(reached<span class="op">=</span>reached[k], power<span class="op">=</span>power[k], withheld<span class="op">=</span>withheld[k], margin<span class="op">=</span>MARGINS[k], tau<span class="op">=</span>tau, met<span class="op">=</span>met,</span>
+<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a>                per_transmission<span class="op">=</span>per_transmission[k])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>g_min = -104 dB</code></pre>
+</div>
+</div>
+</section>
+<section id="on-new-layouts" class="level2">
+<h2 class="anchored" data-anchor-id="on-new-layouts">On new layouts</h2>
+<p>The models are fit on layouts 0–23, the margins are chosen on layouts 24–29, and everything is judged on layouts 100–109, which neither saw. Without fading, then with it:</p>
+<div id="3d3807ac" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>runs <span class="op">=</span> {}</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> faded <span class="kw">in</span> (<span class="va">False</span>, <span class="va">True</span>):</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    fit, cal, test <span class="op">=</span> samples(FIT, faded), samples(CALIBRATION, faded), samples(TEST, faded)</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>    gains <span class="op">=</span> <span class="kw">lambda</span> rs: np.array([r[<span class="st">'gain'</span>] <span class="cf">for</span> r <span class="kw">in</span> rs])</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>    runs[faded] <span class="op">=</span> {name: ((p(cal), gains(cal)), (p(test), gains(test))) <span class="cf">for</span> name, p <span class="kw">in</span> predictors(fit).items()}</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'Rayleigh fading'</span> <span class="cf">if</span> faded <span class="cf">else</span> <span class="st">'no fading'</span><span class="sc">}</span><span class="ss">: </span><span class="sc">{</span><span class="bu">len</span>(fit)<span class="sc">}</span><span class="ss"> / </span><span class="sc">{</span><span class="bu">len</span>(cal)<span class="sc">}</span><span class="ss"> / </span><span class="sc">{</span><span class="bu">len</span>(test)<span class="sc">}</span><span class="ss"> transmissions "</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>          <span class="ss">f"(fit / calibration / unseen); </span><span class="sc">{</span><span class="dv">100</span> <span class="op">*</span> (gains(test) <span class="op">&gt;=</span> G_MIN)<span class="sc">.</span>mean()<span class="sc">:.1f}</span><span class="ss">% of the unseen ones servable"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>no fading: 13440 / 3360 / 5600 transmissions (fit / calibration / unseen); 93.7% of the unseen ones servable
+Rayleigh fading: 13440 / 3360 / 5600 transmissions (fit / calibration / unseen); 91.9% of the unseen ones servable</code></pre>
+</div>
+</div>
+<div id="21426eb1" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> table(faded, rules<span class="op">=</span>(((<span class="fl">0.0</span>,), <span class="st">'withhold (τ = 0)'</span>), ((math.inf,), <span class="st">'best effort (τ = ∞)'</span>), (TAUS, <span class="st">'tuned τ'</span>)), targets<span class="op">=</span>(<span class="fl">0.95</span>, <span class="fl">0.99</span>)):</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'Rayleigh fading'</span> <span class="cf">if</span> faded <span class="cf">else</span> <span class="st">'no fading'</span><span class="sc">}</span><span class="ss">: reliability reached on the unseen layouts, "</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>          <span class="ss">f"power (× perfect CSI); ✗: target not reached on the calibration layouts"</span>)</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">''</span><span class="sc">:28s}</span><span class="ss">"</span> <span class="op">+</span> <span class="st">''</span>.join(<span class="ss">f'</span><span class="sc">{</span>label<span class="sc">:&gt;34s}</span><span class="ss">'</span> <span class="cf">for</span> _, label <span class="kw">in</span> rules))</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">''</span><span class="sc">:28s}</span><span class="ss">"</span> <span class="op">+</span> <span class="st">''</span>.join(<span class="ss">f'</span><span class="sc">{</span><span class="dv">100</span> <span class="op">*</span> t<span class="sc">:&gt;16.0f}</span><span class="ss">%'</span> <span class="cf">for</span> _ <span class="kw">in</span> rules <span class="cf">for</span> t <span class="kw">in</span> targets))</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> name <span class="kw">in</span> runs[faded]:</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>        row <span class="op">=</span> [deploy(name, faded, t, taus<span class="op">=</span>taus) <span class="cf">for</span> taus, _ <span class="kw">in</span> rules <span class="cf">for</span> t <span class="kw">in</span> targets]</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f'</span><span class="sc">{</span>name<span class="sc">:28s}</span><span class="ss">'</span> <span class="op">+</span> <span class="st">''</span>.join(<span class="ss">f"</span><span class="sc">{</span><span class="dv">100</span> <span class="op">*</span> d[<span class="st">'reached'</span>]<span class="sc">:8.1f}</span><span class="ss">% </span><span class="sc">{</span>d[<span class="st">'power'</span>]<span class="sc">:5.1f}</span><span class="ss">×</span><span class="sc">{</span><span class="st">' '</span> <span class="cf">if</span> d[<span class="st">'met'</span>] <span class="cf">else</span> <span class="st">'✗'</span><span class="sc">}</span><span class="ss">"</span> <span class="cf">for</span> d <span class="kw">in</span> row))</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>table(<span class="va">False</span>)</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>()</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>table(<span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>no fading: reliability reached on the unseen layouts, power (× perfect CSI); ✗: target not reached on the calibration layouts
+                                              withhold (τ = 0)               best effort (τ = ∞)                           tuned τ
+                                          95%              99%              95%              99%              95%              99%
+C3-WM's                         96.6%   6.1×     98.1%  13.7×✗    96.5%   5.2×     98.2%  13.8×✗    96.5%   5.2×     98.2%  13.8×✗
+C3-WM's, in dB                  87.9%   1.6×✗    87.9%   1.6×✗    95.0%   4.5×     99.2%  10.1×     94.7%   3.2×     99.1%   9.8× 
+history quantile                89.9%   1.1×✗    89.9%   1.1×✗    95.4%   4.4×     98.9%   8.2×     94.8%   3.7×     98.9%   8.2× 
+geometry + history quantile     92.2%   1.3×✗    92.2%   1.3×✗    94.9%   4.0×     99.0%   6.8×     94.4%   2.0×     99.0%   6.8× 
+geometry + history mean         89.1%   1.4×✗    89.1%   1.4×✗    94.3%   4.0×     99.0%   7.7×     94.6%   2.8×     99.0%   7.7× 
+digital twin                    97.7%   1.1×     98.6%   1.1×✗   100.0%   3.4×    100.0%   3.4×     97.7%   1.1×     98.9%   1.5× 
+
+Rayleigh fading: reliability reached on the unseen layouts, power (× perfect CSI); ✗: target not reached on the calibration layouts
+                                              withhold (τ = 0)               best effort (τ = ∞)                           tuned τ
+                                          95%              99%              95%              99%              95%              99%
+C3-WM's                         93.0%   3.1×     97.3%   9.2×✗    93.0%   3.1×     97.3%   9.2×✗    93.0%   3.1×     97.3%   9.2×✗
+C3-WM's, in dB                  86.8%   1.6×✗    86.8%   1.6×✗    95.4%   6.1×     99.3%  12.3×     95.4%   5.1×     99.2%  12.5× 
+history quantile                85.9%   1.6×✗    85.9%   1.6×✗    95.2%   6.1×     99.0%  10.7×     95.2%   5.2×     99.0%  10.7× 
+geometry + history quantile     86.6%   1.5×✗    86.6%   1.5×✗    94.8%   5.7×     99.2%   9.5×     94.5%   4.2×     99.2%   9.5× 
+geometry + history mean         87.2%   1.7×✗    87.2%   1.7×✗    95.3%   5.7×     99.3%  10.5×     94.9%   4.1×     99.2%   9.9× 
+digital twin                    84.4%   1.7×✗    84.4%   1.7×✗    94.8%   6.5×     99.2%   9.7×     94.5%   5.0×     99.2%   9.8× </code></pre>
+</div>
+</div>
+<ul>
+<li><strong>C3-WM’s predictor can’t be made reliable.</strong> Fit on <code>|h|²</code>, it overestimates weak links (the fit is dominated by the strong ones), and a margin can’t fix an error that depends on the link’s strength: it never reaches 99%. Fit in dB, the same linear predictor is unbiased, and reaches both targets.</li>
+<li><strong>Withholding as soon as <code>ρ̂ &gt; ρ_max</code> (<code>τ = 0</code>) caps the reliability of a cautious predictor.</strong> None of the learned ones reaches 95% that way, except C3-WM’s fit on <code>|h|²</code> without fading, which rarely predicts more than <code>ρ_max</code> (it is optimistic about weak links, and fails them instead). The margin that rescues underestimated transmissions also pushes others over <code>ρ_max</code>, where they are withheld although they would have succeeded.</li>
+<li><strong>The margins transfer.</strong> Chosen on 6 layouts, they land within 0.7 percentage points of the target on the 10 unseen ones.</li>
+<li><strong>The layout’s geometry helps.</strong> At 99% without fading, the geometry + history quantile needs 6.8× perfect CSI’s power, the history alone 8.2×, C3-WM’s in dB 9.8×.</li>
+<li><strong>Fading levels the field.</strong> With fading, every predictor needs 10–12× for 99%, the digital twin included: the fading is redrawn whenever an agent moves, so no one can predict it, and its unpredictable part sets the cost. Without fading, the digital twin’s map is exact and it needs 1.5×.</li>
+<li><strong>Tuning <code>τ</code> pays at 95%</strong> (2.0× instead of 4.0× for the geometry model without fading). At 99%, the tuned <code>τ</code> is large or infinite, and the power within 6% of best effort’s: to lose only 1%, little can be withheld.</li>
+</ul>
+</section>
+<section id="the-link-budget" class="level2">
+<h2 class="anchored" data-anchor-id="the-link-budget">The link budget</h2>
+<p><code>Γ</code>, <code>σ²</code> and <code>ρ_max</code> matter only through <code>g_min = Γσ²/ρ_max</code>, the weakest gain a link can have and still be served: raising <code>Γ</code> by 3 dB is the same as lowering <code>ρ_max</code> by 3 dB. The power each predictor needs for 99%, with the threshold <code>τ</code> tuned, from a tight budget (left) to a loose one:</p>
+<div id="1e4878d3" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>G_SWEEP_DB <span class="op">=</span> np.arange(<span class="op">-</span><span class="dv">95</span>, <span class="op">-</span><span class="fl">120.1</span>, <span class="op">-</span><span class="fl">2.5</span>)</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">12</span>, <span class="fl">4.2</span>), sharey<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> ax, faded <span class="kw">in</span> <span class="bu">zip</span>(axes, (<span class="va">False</span>, <span class="va">True</span>)):</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> name <span class="kw">in</span> runs[faded]:</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>        power <span class="op">=</span> [deploy(name, faded, <span class="fl">0.99</span>, <span class="dv">10</span> <span class="op">**</span> (g <span class="op">/</span> <span class="dv">10</span>), taus<span class="op">=</span>TAUS) <span class="cf">for</span> g <span class="kw">in</span> G_SWEEP_DB]</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>        ax.plot(G_SWEEP_DB, [d[<span class="st">'power'</span>] <span class="cf">if</span> d[<span class="st">'met'</span>] <span class="cf">else</span> np.nan <span class="cf">for</span> d <span class="kw">in</span> power], <span class="st">'o-'</span>, ms<span class="op">=</span><span class="dv">3</span>,</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>                lw<span class="op">=</span><span class="fl">2.4</span> <span class="cf">if</span> name <span class="op">==</span> <span class="st">'geometry + history quantile'</span> <span class="cf">else</span> <span class="fl">1.4</span>, label<span class="op">=</span>name)</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>    ax.axhline(<span class="dv">1</span>, color<span class="op">=</span><span class="st">'k'</span>, lw<span class="op">=</span><span class="fl">0.8</span>)</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>    ax.<span class="bu">set</span>(title<span class="op">=</span><span class="st">'Rayleigh fading'</span> <span class="cf">if</span> faded <span class="cf">else</span> <span class="st">'no fading'</span>, xlabel<span class="op">=</span><span class="st">'g_min = Γσ²/ρ_max (dB)'</span>, yscale<span class="op">=</span><span class="st">'log'</span>,</span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>           xlim<span class="op">=</span>(G_SWEEP_DB[<span class="dv">0</span>] <span class="op">+</span> <span class="dv">1</span>, G_SWEEP_DB[<span class="op">-</span><span class="dv">1</span>] <span class="op">-</span> <span class="dv">1</span>))</span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>    ax.grid(alpha<span class="op">=</span><span class="fl">0.3</span>)</span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].set_ylabel(<span class="st">'power for 99%, × perfect CSI'</span>)</span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].legend(fontsize<span class="op">=</span><span class="dv">8</span>)</span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="07_power_across_layouts_files/figure-html/cell-12-output-1.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Without fading, the learned predictors (C3-WM’s aside) need 6–15× perfect CSI’s power for 99%, and the digital twin 1.1–2.3×. With fading, all of them need 9–18×, and the twin’s advantage is gone. C3-WM’s predictor reaches 99% only on the tightest budgets, where the weak links it overestimates are not servable anyway. The geometry + history models are the cheapest learned ones over the whole range.</p>
+</section>
+<section id="what-the-agents-receive" class="level2">
+<h2 class="anchored" data-anchor-id="what-the-agents-receive">What the agents receive</h2>
+<p>Reaching <code>Γ</code> is not the same as arriving intact. A message is 49 tokens of 8 bits over uncoded BPSK, so at the SNR it gets, each bit is wrong with probability <code>Q(√(2 SNR))</code>. With the margins chosen above, the share of the servable messages that arrive with no bit error, and the share of wrong tokens in those sent, for two targets <code>Γ</code> (at the same <code>g_min</code>, so with <code>ρ_max</code> scaled along: the reliability results above don’t change):</p>
+<div id="91cee703" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>erfc <span class="op">=</span> np.vectorize(math.erfc)</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>TOKENS, BITS <span class="op">=</span> <span class="dv">49</span>, <span class="dv">8</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> received(power, gain, snr_target_db):</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">"(error-free share of the servable messages, wrong-token share in the servable messages sent)."</span></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>    servable, sent <span class="op">=</span> gain <span class="op">&gt;=</span> G_MIN, power <span class="op">&gt;</span> <span class="dv">0</span></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>    ber <span class="op">=</span> <span class="fl">0.5</span> <span class="op">*</span> erfc(np.sqrt(<span class="dv">10</span> <span class="op">**</span> (snr_target_db <span class="op">/</span> <span class="dv">10</span>) <span class="op">*</span> power <span class="op">*</span> gain))</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>    clean <span class="op">=</span> np.where(sent, (<span class="dv">1</span> <span class="op">-</span> ber) <span class="op">**</span> (TOKENS <span class="op">*</span> BITS), <span class="dv">0</span>)[servable].mean()</span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> clean, (<span class="dv">1</span> <span class="op">-</span> (<span class="dv">1</span> <span class="op">-</span> ber[sent <span class="op">&amp;</span> servable]) <span class="op">**</span> BITS).mean()</span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> faded <span class="kw">in</span> (<span class="va">False</span>, <span class="va">True</span>):</span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>    gain <span class="op">=</span> runs[faded][<span class="st">'digital twin'</span>][<span class="dv">1</span>][<span class="dv">1</span>]</span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'Rayleigh fading'</span> <span class="cf">if</span> faded <span class="cf">else</span> <span class="st">'no fading'</span><span class="sc">}</span><span class="ss">, tuned τ, target 99%:   error-free / wrong tokens"</span>)</span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">''</span><span class="sc">:28s}{</span><span class="st">'Γ = 7 dB'</span><span class="sc">:&gt;22s}{</span><span class="st">'Γ = 10 dB'</span><span class="sc">:&gt;22s}</span><span class="ss">"</span>)</span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>    exact <span class="op">=</span> np.where(gain <span class="op">&gt;=</span> G_MIN, <span class="dv">1</span> <span class="op">/</span> gain, <span class="dv">0</span>)</span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'perfect CSI (exactly Γ)'</span><span class="sc">:28s}</span><span class="ss">"</span> <span class="op">+</span> <span class="st">''</span>.join(<span class="ss">f'</span><span class="sc">{</span><span class="dv">100</span> <span class="op">*</span> c<span class="sc">:12.1f}</span><span class="ss">% </span><span class="sc">{</span><span class="dv">100</span> <span class="op">*</span> w<span class="sc">:6.2f}</span><span class="ss">%  '</span> <span class="cf">for</span> c, w <span class="kw">in</span> (received(exact, gain, s) <span class="cf">for</span> s <span class="kw">in</span> (<span class="dv">7</span>, <span class="dv">10</span>))))</span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> name <span class="kw">in</span> runs[faded]:</span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a>        d <span class="op">=</span> deploy(name, faded, <span class="fl">0.99</span>, taus<span class="op">=</span>TAUS)</span>
+<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f'</span><span class="sc">{</span>name<span class="sc">:28s}</span><span class="ss">'</span> <span class="op">+</span> <span class="st">''</span>.join(<span class="ss">f'</span><span class="sc">{</span><span class="dv">100</span> <span class="op">*</span> c<span class="sc">:12.1f}</span><span class="ss">% </span><span class="sc">{</span><span class="dv">100</span> <span class="op">*</span> w<span class="sc">:6.2f}</span><span class="ss">%  '</span> <span class="cf">for</span> c, w <span class="kw">in</span> (received(d[<span class="st">"per_transmission"</span>], gain, s) <span class="cf">for</span> s <span class="kw">in</span> (<span class="dv">7</span>, <span class="dv">10</span>))))</span>
+<span id="cb17-20"><a href="#cb17-20" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>no fading, tuned τ, target 99%:   error-free / wrong tokens
+                                          Γ = 7 dB             Γ = 10 dB
+perfect CSI (exactly Γ)             73.9%   0.62%          99.8%   0.00%  
+C3-WM's                             99.0%   0.03%         100.0%   0.00%  
+C3-WM's, in dB                      98.9%   0.16%          99.4%   0.08%  
+history quantile                    98.9%   0.35%          99.5%   0.22%  
+geometry + history quantile         99.0%   0.24%          99.5%   0.10%  
+geometry + history mean             98.8%   0.22%          99.4%   0.10%  
+digital twin                        79.4%   0.46%          98.8%   0.00%  
+
+Rayleigh fading, tuned τ, target 99%:   error-free / wrong tokens
+                                          Γ = 7 dB             Γ = 10 dB
+perfect CSI (exactly Γ)             73.9%   0.62%          99.8%   0.00%  
+C3-WM's                             97.8%   0.12%          99.8%   0.01%  
+C3-WM's, in dB                      99.1%   0.15%          99.4%   0.08%  
+history quantile                    99.0%   0.32%          99.5%   0.21%  
+geometry + history quantile         99.2%   0.14%          99.7%   0.04%  
+geometry + history mean             99.1%   0.13%          99.5%   0.06%  
+digital twin                        99.1%   0.11%          99.4%   0.04%  
+</code></pre>
+</div>
+</div>
+<ul>
+<li><strong>At <code>Γ = 7 dB</code>, reaching <code>Γ</code> is not arriving intact.</strong> Even perfect CSI delivers only 74% of the messages without a bit error: at exactly <code>Γ</code>, a bit is wrong with probability <code>8·10⁻⁴</code>, and a message has 392 of them. The learned predictors deliver about 99% error-free, because their margins put most transmissions well above <code>Γ</code>. The digital twin without fading, accurate and with little margin, delivers 79%.</li>
+<li><strong>At <code>Γ = 10 dB</code>, the two agree.</strong> Perfect CSI delivers 99.8% error-free, every predictor about its reliability, and under 0.25% of the tokens are wrong.</li>
+</ul>
+<p>So <code>Γ</code> belongs to the message: about 10 dB makes “reaching <code>Γ</code>” mean “arriving intact” for 392 uncoded bits. The reliability and power results above don’t depend on it, only on <code>g_min</code>.</p>
+</section>
+<section id="when-to-withhold-a-transmission" class="level2">
+<h2 class="anchored" data-anchor-id="when-to-withhold-a-transmission">When to withhold a transmission</h2>
+<p>C3-WM withholds a transmission when its predicted power exceeds the budget (<code>δ = 1(ρ̂ ≤ ρ_max)</code>); best effort never does, and sends at <code>ρ_max</code>. Between the two, a threshold <code>τ</code>: withhold only when <code>ρ̂ &gt; τ ρ_max</code>, otherwise send at <code>min(ρ̂, ρ_max)</code>. Here <code>τ</code> is chosen on the calibration layouts together with the margin, the cheapest pair reaching the target:</p>
+<div id="04fd3a20" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>name <span class="op">=</span> <span class="st">'geometry + history quantile'</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> faded <span class="kw">in</span> (<span class="va">False</span>, <span class="va">True</span>):</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>name<span class="sc">}</span><span class="ss">, </span><span class="sc">{</span><span class="st">'Rayleigh fading'</span> <span class="cf">if</span> faded <span class="cf">else</span> <span class="st">'no fading'</span><span class="sc">}</span><span class="ss">: reliability / power (× perfect CSI) / withheld"</span>)</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'g_min'</span><span class="sc">:&gt;8s}{</span><span class="st">'target'</span><span class="sc">:&gt;8s}{</span><span class="st">'withhold (τ = 0)'</span><span class="sc">:&gt;27s}{</span><span class="st">'best effort (τ = ∞)'</span><span class="sc">:&gt;27s}{</span><span class="st">'tuned τ'</span><span class="sc">:&gt;38s}</span><span class="ss">"</span>)</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> g <span class="kw">in</span> (<span class="op">-</span><span class="dv">95</span>, <span class="op">-</span><span class="dv">100</span>, <span class="op">-</span><span class="dv">104</span>):</span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> target <span class="kw">in</span> (<span class="fl">0.95</span>, <span class="fl">0.99</span>):</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>            row <span class="op">=</span> [deploy(name, faded, target, <span class="dv">10</span> <span class="op">**</span> (g <span class="op">/</span> <span class="dv">10</span>), taus<span class="op">=</span>t) <span class="cf">for</span> t <span class="kw">in</span> ((<span class="fl">0.0</span>,), (math.inf,), TAUS)]</span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>            cells <span class="op">=</span> [<span class="ss">f"</span><span class="sc">{</span><span class="dv">100</span> <span class="op">*</span> d[<span class="st">'reached'</span>]<span class="sc">:6.1f}</span><span class="ss">% </span><span class="sc">{</span>d[<span class="st">'power'</span>]<span class="sc">:5.1f}</span><span class="ss">× </span><span class="sc">{</span><span class="dv">100</span> <span class="op">*</span> d[<span class="st">'withheld'</span>]<span class="sc">:4.1f}</span><span class="ss">%</span><span class="sc">{</span><span class="st">' '</span> <span class="cf">if</span> d[<span class="st">'met'</span>] <span class="cf">else</span> <span class="st">'✗'</span><span class="sc">}</span><span class="ss">"</span> <span class="cf">for</span> d <span class="kw">in</span> row]</span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a>            tau <span class="op">=</span> row[<span class="dv">2</span>][<span class="st">'tau'</span>]</span>
+<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f'</span><span class="sc">{</span>g<span class="sc">:5d}</span><span class="ss"> dB</span><span class="sc">{</span><span class="dv">100</span> <span class="op">*</span> target<span class="sc">:7.0f}</span><span class="ss">%'</span> <span class="op">+</span> <span class="st">''</span>.join(<span class="ss">f'</span><span class="sc">{</span>c<span class="sc">:&gt;27s}</span><span class="ss">'</span> <span class="cf">for</span> c <span class="kw">in</span> cells[:<span class="dv">2</span>]) <span class="op">+</span> <span class="ss">f"</span><span class="sc">{</span><span class="st">'τ = '</span> <span class="op">+</span> (<span class="st">'∞'</span> <span class="cf">if</span> math.isinf(tau) <span class="cf">else</span> <span class="ss">f'</span><span class="sc">{</span>tau<span class="sc">:g}</span><span class="ss"> dB'</span>)<span class="sc">:&gt;14s}{</span>cells[<span class="dv">2</span>]<span class="sc">:&gt;24s}</span><span class="ss">"</span>)</span>
+<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>geometry + history quantile, no fading: reliability / power (× perfect CSI) / withheld
+   g_min  target           withhold (τ = 0)        best effort (τ = ∞)                               tuned τ
+  -95 dB     95%        88.3%   1.3× 18.5%✗        95.4%   4.5×  0.0%       τ = 6 dB     94.6%   2.6× 12.2% 
+  -95 dB     99%        88.3%   1.3× 18.5%✗        99.2%   6.7×  0.0%          τ = ∞     99.2%   6.7×  0.0% 
+ -100 dB     95%        92.4%   1.9× 13.2%✗        94.6%   5.4×  0.0%       τ = 8 dB     94.8%   3.2×  7.9% 
+ -100 dB     99%        92.4%   1.9× 13.2%✗        99.1%   8.7×  0.0%          τ = ∞     99.1%   8.7×  0.0% 
+ -104 dB     95%        92.2%   1.3×  9.7%✗        94.9%   4.0×  0.0%       τ = 6 dB     94.4%   2.0×  7.2% 
+ -104 dB     99%        92.2%   1.3×  9.7%✗        99.0%   6.8×  0.0%          τ = ∞     99.0%   6.8×  0.0% 
+
+geometry + history quantile, Rayleigh fading: reliability / power (× perfect CSI) / withheld
+   g_min  target           withhold (τ = 0)        best effort (τ = ∞)                               tuned τ
+  -95 dB     95%        81.9%   1.3× 25.4%✗        94.9%   6.1×  0.0%      τ = 15 dB     94.5%   4.4× 11.2% 
+  -95 dB     99%        81.9%   1.3× 25.4%✗        99.2%   9.1×  0.0%          τ = ∞     99.2%   9.1×  0.0% 
+ -100 dB     95%        84.5%   1.4× 19.3%✗        94.8%   6.0×  0.0%      τ = 12 dB     94.5%   4.3×  9.7% 
+ -100 dB     99%        84.5%   1.4× 19.3%✗        99.3%   9.5×  0.0%          τ = ∞     99.3%   9.5×  0.0% 
+ -104 dB     95%        86.6%   1.5× 15.2%✗        94.8%   5.7×  0.0%      τ = 10 dB     94.5%   4.2×  8.6% 
+ -104 dB     99%        86.6%   1.5× 15.2%✗        99.2%   9.5×  0.0%          τ = ∞     99.2%   9.5×  0.0% 
+</code></pre>
+</div>
+</div>
+<ul>
+<li><strong>At 95%, a tuned threshold saves power.</strong> With <code>τ</code> between 6 and 15 dB, the transmitter withholds the 7–12% of transmissions predicted far beyond the budget, and spends half of best effort’s power without fading (2.0–3.2× instead of 4.0–5.4×), and a quarter less with fading (4.2–4.4× instead of 5.7–6.1×).</li>
+<li><strong>At 99%, it is best effort:</strong> <code>τ = ∞</code> on every budget. To lose only 1%, no transmission can be withheld.</li>
+<li><strong>Withholding at <code>ρ̂ &gt; ρ_max</code> (<code>τ = 0</code>)</strong> reaches 82–92% at most.</li>
+<li><strong>Tuned on 6 layouts, <code>τ</code> slightly undershoots on new ones</strong> (94.4–94.8% for a 95% target). If the target must hold, tune for a slightly higher one, or keep <code>τ</code> above a few dB.</li>
+</ul>
+</section>
+<section id="the-same-through-a-network" class="level2">
+<h2 class="anchored" data-anchor-id="the-same-through-a-network">The same through a network</h2>
+<p>The learned predictor as a comm-core power control: <code>LearnedChannelInversion</code> keeps each link’s past gains (known after each transmission, as the receiver feeds them back), notes where the nodes are at every round (the receiver’s cell and heading reach the transmitter a round late), and allocates with the margin and threshold chosen above for 99%. Here it runs through a <a href="https://Ahmed-Khaled-Saleh.github.io/comm-core/link.html#linklevelchannel"><code>LinkLevelChannel</code></a>, every bit of every message, on the unseen layouts without fading:</p>
+<div id="fe81e437" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> LearnedChannelInversion(PowerControl):</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"Channel inversion with a learned gain prediction (`features` -&gt; dB), the lowest over the receiver's possible cells."</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, model, layout, fading, headings, target_snr_db, max_power, margin_db<span class="op">=</span><span class="fl">0.0</span>, tau_db<span class="op">=</span>math.inf):</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.model, <span class="va">self</span>.layout, <span class="va">self</span>.fading, <span class="va">self</span>.headings <span class="op">=</span> model, layout, fading, headings</span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.target_snr_db, <span class="va">self</span>.max_power, <span class="va">self</span>.margin_db, <span class="va">self</span>.tau_db <span class="op">=</span> target_snr_db, max_power, margin_db, tau_db</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.reset()</span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> reset(<span class="va">self</span>, seed<span class="op">=</span><span class="va">None</span>):</span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>._past, <span class="va">self</span>._rounds <span class="op">=</span> {}, []</span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> update(<span class="va">self</span>, time):</span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a>        <span class="co">"A new round: where the nodes are now, and their headings; the last rounds are what they reported."</span></span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>._rounds <span class="op">=</span> (<span class="va">self</span>._rounds <span class="op">+</span> [(<span class="bu">dict</span>(<span class="va">self</span>.fading.node_positions), <span class="bu">dict</span>(<span class="va">self</span>.headings()))])[<span class="op">-</span><span class="dv">3</span>:]</span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> allocate(<span class="va">self</span>, gain, noise_power, link<span class="op">=</span><span class="va">None</span>, message<span class="op">=</span><span class="va">None</span>):</span>
+<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a>        past <span class="op">=</span> <span class="va">self</span>._past.setdefault((link.sender, link.receiver), [])</span>
+<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="bu">len</span>(past) <span class="op">&lt;</span> HISTORY <span class="kw">or</span> <span class="bu">len</span>(<span class="va">self</span>._rounds) <span class="op">&lt;</span> <span class="dv">3</span>:</span>
+<span id="cb21-19"><a href="#cb21-19" aria-hidden="true" tabindex="-1"></a>            power, send <span class="op">=</span> <span class="va">self</span>.max_power, <span class="va">True</span>                          <span class="co"># not enough history yet: full power</span></span>
+<span id="cb21-20"><a href="#cb21-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb21-21"><a href="#cb21-21" aria-hidden="true" tabindex="-1"></a>            (earlier, _), (before, heads), (now, _) <span class="op">=</span> <span class="va">self</span>._rounds</span>
+<span id="cb21-22"><a href="#cb21-22" aria-hidden="true" tabindex="-1"></a>            tx, rx <span class="op">=</span> now[link.sender], before[link.receiver]</span>
+<span id="cb21-23"><a href="#cb21-23" aria-hidden="true" tabindex="-1"></a>            d <span class="op">=</span> DIRS[heads[link.receiver]]</span>
+<span id="cb21-24"><a href="#cb21-24" aria-hidden="true" tabindex="-1"></a>            possible <span class="op">=</span> [c <span class="cf">for</span> c <span class="kw">in</span> (rx, (rx[<span class="dv">0</span>] <span class="op">+</span> d[<span class="dv">0</span>], rx[<span class="dv">1</span>] <span class="op">+</span> d[<span class="dv">1</span>])) <span class="cf">if</span> c <span class="kw">in</span> <span class="va">self</span>.layout.idx <span class="kw">and</span> c <span class="op">!=</span> tx] <span class="kw">or</span> [rx]</span>
+<span id="cb21-25"><a href="#cb21-25" aria-hidden="true" tabindex="-1"></a>            r <span class="op">=</span> <span class="bu">dict</span>(lay<span class="op">=</span><span class="va">self</span>.layout, tx<span class="op">=</span>tx, past<span class="op">=</span>np.array(past[<span class="op">-</span>HISTORY:][::<span class="op">-</span><span class="dv">1</span>]),</span>
+<span id="cb21-26"><a href="#cb21-26" aria-hidden="true" tabindex="-1"></a>                     moved<span class="op">=</span>[<span class="bu">float</span>(tx <span class="op">!=</span> before[link.sender]), <span class="bu">float</span>(rx <span class="op">!=</span> earlier[link.receiver])])</span>
+<span id="cb21-27"><a href="#cb21-27" aria-hidden="true" tabindex="-1"></a>            predicted <span class="op">=</span> <span class="dv">10</span> <span class="op">**</span> (<span class="bu">min</span>(<span class="va">self</span>.model.predict(np.array([features(r, c) <span class="cf">for</span> c <span class="kw">in</span> possible]))) <span class="op">/</span> <span class="dv">10</span>)</span>
+<span id="cb21-28"><a href="#cb21-28" aria-hidden="true" tabindex="-1"></a>            rho <span class="op">=</span> <span class="dv">10</span> <span class="op">**</span> ((<span class="va">self</span>.target_snr_db <span class="op">+</span> <span class="va">self</span>.margin_db) <span class="op">/</span> <span class="dv">10</span>) <span class="op">*</span> noise_power <span class="op">/</span> predicted</span>
+<span id="cb21-29"><a href="#cb21-29" aria-hidden="true" tabindex="-1"></a>            power, send <span class="op">=</span> <span class="bu">min</span>(rho, <span class="va">self</span>.max_power), rho <span class="op">&lt;=</span> <span class="va">self</span>.max_power <span class="op">*</span> <span class="dv">10</span> <span class="op">**</span> (<span class="va">self</span>.tau_db <span class="op">/</span> <span class="dv">10</span>)</span>
+<span id="cb21-30"><a href="#cb21-30" aria-hidden="true" tabindex="-1"></a>        past.append(<span class="bu">float</span>(gain))                                        <span class="co"># fed back after the transmission</span></span>
+<span id="cb21-31"><a href="#cb21-31" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> power, send</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="09d6adc1" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>fit <span class="op">=</span> samples(FIT, <span class="va">False</span>)</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> HistGradientBoostingRegressor(loss<span class="op">=</span><span class="st">'quantile'</span>, quantile<span class="op">=</span><span class="fl">0.05</span>, max_iter<span class="op">=</span><span class="dv">400</span>, learning_rate<span class="op">=</span><span class="fl">0.05</span>, early_stopping<span class="op">=</span><span class="va">False</span>,</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>                                      random_state<span class="op">=</span><span class="dv">0</span>).fit(np.array([features(r, r[<span class="st">'rx'</span>]) <span class="cf">for</span> r <span class="kw">in</span> fit]), db(np.array([r[<span class="st">'gain'</span>] <span class="cf">for</span> r <span class="kw">in</span> fit])))</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>chosen <span class="op">=</span> deploy(<span class="st">'geometry + history quantile'</span>, <span class="va">False</span>, <span class="fl">0.99</span>, taus<span class="op">=</span>TAUS)</span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>NOISE_W, MAX_POWER_W <span class="op">=</span> <span class="dv">10</span> <span class="op">**</span> ((NOISE_DBM <span class="op">-</span> <span class="dv">30</span>) <span class="op">/</span> <span class="dv">10</span>), <span class="dv">10</span> <span class="op">**</span> ((MAX_POWER_DBM <span class="op">-</span> <span class="dv">30</span>) <span class="op">/</span> <span class="dv">10</span>)</span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>AGENTS <span class="op">=</span> [<span class="st">'agent_0'</span>, <span class="st">'agent_1'</span>]</span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>tokens <span class="op">=</span> np.random.default_rng(<span class="dv">0</span>).integers(<span class="dv">256</span>, size<span class="op">=</span><span class="dv">49</span>)</span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>reached, power, perfect, clean <span class="op">=</span> [], [], [], []</span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> seed <span class="kw">in</span> TEST:</span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a>    lay <span class="op">=</span> layouts[seed]</span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> k <span class="kw">in</span> <span class="bu">range</span>(ROLLOUTS):</span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>        episode <span class="op">=</span> walk(lay, <span class="dv">1000</span> <span class="op">*</span> seed <span class="op">+</span> k)</span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a>        fading_map <span class="op">=</span> RayTracedFading(np.sqrt(lay.G).astype(<span class="bu">complex</span>), lay.cells)</span>
+<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a>        heads <span class="op">=</span> {}</span>
+<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a>        control <span class="op">=</span> LearnedChannelInversion(model, lay, fading_map, <span class="kw">lambda</span>: heads, SNR_TARGET_DB, MAX_POWER_W,</span>
+<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a>                                          margin_db<span class="op">=</span>chosen[<span class="st">'margin'</span>], tau_db<span class="op">=</span>chosen[<span class="st">'tau'</span>])</span>
+<span id="cb22-18"><a href="#cb22-18" aria-hidden="true" tabindex="-1"></a>        channel <span class="op">=</span> LinkLevelChannel(codec<span class="op">=</span>IndexCodec(<span class="dv">256</span>), fading<span class="op">=</span>fading_map, power_control<span class="op">=</span>control, noise_power<span class="op">=</span>NOISE_W, seed<span class="op">=</span>k)</span>
+<span id="cb22-19"><a href="#cb22-19" aria-hidden="true" tabindex="-1"></a>        net <span class="op">=</span> Network([Node(a) <span class="cf">for</span> a <span class="kw">in</span> AGENTS], FullMeshTopology(AGENTS), IdealProtocol(), AnalyticalBackend(channel))</span>
+<span id="cb22-20"><a href="#cb22-20" aria-hidden="true" tabindex="-1"></a>        net.reset(seed<span class="op">=</span>seed)</span>
+<span id="cb22-21"><a href="#cb22-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> t, (cells, headings) <span class="kw">in</span> <span class="bu">enumerate</span>(episode):</span>
+<span id="cb22-22"><a href="#cb22-22" aria-hidden="true" tabindex="-1"></a>            channel.set_positions(<span class="bu">dict</span>(<span class="bu">zip</span>(AGENTS, cells)))</span>
+<span id="cb22-23"><a href="#cb22-23" aria-hidden="true" tabindex="-1"></a>            heads.update(<span class="bu">zip</span>(AGENTS, headings))</span>
+<span id="cb22-24"><a href="#cb22-24" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> a, b <span class="kw">in</span> ((<span class="dv">0</span>, <span class="dv">1</span>), (<span class="dv">1</span>, <span class="dv">0</span>)):</span>
+<span id="cb22-25"><a href="#cb22-25" aria-hidden="true" tabindex="-1"></a>                net.send(Message(AGENTS[a], AGENTS[b], payload<span class="op">=</span>tokens))</span>
+<span id="cb22-26"><a href="#cb22-26" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> r <span class="kw">in</span> net.step():</span>
+<span id="cb22-27"><a href="#cb22-27" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span> t <span class="op">&lt;</span> HISTORY:</span>
+<span id="cb22-28"><a href="#cb22-28" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">continue</span></span>
+<span id="cb22-29"><a href="#cb22-29" aria-hidden="true" tabindex="-1"></a>                g, p <span class="op">=</span> <span class="dv">10</span> <span class="op">**</span> (r.metadata[<span class="st">'channel_gain_db'</span>] <span class="op">/</span> <span class="dv">10</span>), r.metadata[<span class="st">'tx_power'</span>]</span>
+<span id="cb22-30"><a href="#cb22-30" aria-hidden="true" tabindex="-1"></a>                servable <span class="op">=</span> g <span class="op">&gt;=</span> G_MIN</span>
+<span id="cb22-31"><a href="#cb22-31" aria-hidden="true" tabindex="-1"></a>                power.append(p)                                          <span class="co"># spent on every link, servable or not</span></span>
+<span id="cb22-32"><a href="#cb22-32" aria-hidden="true" tabindex="-1"></a>                perfect.append(<span class="dv">10</span> <span class="op">**</span> (SNR_TARGET_DB <span class="op">/</span> <span class="dv">10</span>) <span class="op">*</span> NOISE_W <span class="op">/</span> g <span class="cf">if</span> servable <span class="cf">else</span> <span class="fl">0.0</span>)</span>
+<span id="cb22-33"><a href="#cb22-33" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span> servable:</span>
+<span id="cb22-34"><a href="#cb22-34" aria-hidden="true" tabindex="-1"></a>                    reached.append(p <span class="op">*</span> g <span class="op">/</span> NOISE_W <span class="op">&gt;=</span> <span class="dv">10</span> <span class="op">**</span> (SNR_TARGET_DB <span class="op">/</span> <span class="dv">10</span>) <span class="op">*</span> (<span class="dv">1</span> <span class="op">-</span> <span class="fl">1e-9</span>))</span>
+<span id="cb22-35"><a href="#cb22-35" aria-hidden="true" tabindex="-1"></a>                    clean.append(<span class="kw">not</span> r.metadata.get(<span class="st">'outage'</span>) <span class="kw">and</span> r.metadata.get(<span class="st">'bit_errors'</span>, <span class="dv">1</span>) <span class="op">==</span> <span class="dv">0</span>)</span>
+<span id="cb22-36"><a href="#cb22-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-37"><a href="#cb22-37" aria-hidden="true" tabindex="-1"></a>tau <span class="op">=</span> <span class="st">'∞'</span> <span class="cf">if</span> math.isinf(chosen[<span class="st">'tau'</span>]) <span class="cf">else</span> <span class="ss">f"</span><span class="sc">{</span>chosen[<span class="st">'tau'</span>]<span class="sc">:g}</span><span class="ss"> dB"</span></span>
+<span id="cb22-38"><a href="#cb22-38" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"margin </span><span class="sc">{</span>chosen[<span class="st">'margin'</span>]<span class="sc">:+.2f}</span><span class="ss"> dB, τ = </span><span class="sc">{</span>tau<span class="sc">}</span><span class="ss">; servable transmissions: </span><span class="sc">{</span><span class="bu">len</span>(reached)<span class="sc">}</span><span class="ss"> of </span><span class="sc">{</span><span class="bu">len</span>(power)<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb22-39"><a href="#cb22-39" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">''</span><span class="sc">:12s}{</span><span class="st">'reached Γ'</span><span class="sc">:&gt;12s}{</span><span class="st">'power'</span><span class="sc">:&gt;10s}{</span><span class="st">'error-free'</span><span class="sc">:&gt;13s}</span><span class="ss">"</span>)</span>
+<span id="cb22-40"><a href="#cb22-40" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'network'</span><span class="sc">:12s}{</span><span class="dv">100</span> <span class="op">*</span> np<span class="sc">.</span>mean(reached)<span class="sc">:11.1f}</span><span class="ss">%</span><span class="sc">{</span>np<span class="sc">.</span>mean(power) <span class="op">/</span> np<span class="sc">.</span>mean(perfect)<span class="sc">:9.1f}</span><span class="ss">×</span><span class="sc">{</span><span class="dv">100</span> <span class="op">*</span> np<span class="sc">.</span>mean(clean)<span class="sc">:12.1f}</span><span class="ss">%"</span>)</span>
+<span id="cb22-41"><a href="#cb22-41" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'analysis'</span><span class="sc">:12s}{</span><span class="dv">100</span> <span class="op">*</span> chosen[<span class="st">'reached'</span>]<span class="sc">:11.1f}</span><span class="ss">%</span><span class="sc">{</span>chosen[<span class="st">'power'</span>]<span class="sc">:9.1f}</span><span class="ss">×"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>margin +7.75 dB, τ = ∞; servable transmissions: 5248 of 5600
+               reached Γ     power   error-free
+network            99.0%      6.8×        99.6%
+analysis           99.0%      6.8×</code></pre>
+</div>
+</div>
+<p>The network reaches <code>Γ</code> on the same share of the servable transmissions, with the same power, as the analysis: the analysis computes what <code>LearnedChannelInversion</code> does. Through every bit, 99.6% of the servable messages arrive without an error.</p>
+<p>The power control needs, besides the model: each link’s past gains (fed back by the receiver), the nodes’ cells and headings, a round late for the receiver (<code>update</code> notes them), and the layout’s walls. All of these are application knowledge that comm-core is given, never tracks itself.</p>
+</section>
+<section id="in-short" class="level2">
+<h2 class="anchored" data-anchor-id="in-short">In short</h2>
+<ul>
+<li><strong>Predict the gain from the link’s history, the agents’ moves and the layout’s geometry.</strong> These models are the cheapest learned predictors in every setting here (the low quantile slightly ahead of the mean at 99%), and they need no ray tracing at run time. Without the layout, the history alone (with the moves) comes next.</li>
+<li><strong>Choose the margin, and the scheduling threshold, on held-out layouts.</strong> They transfer to new ones within 0.7 percentage points of the target.</li>
+<li><strong>Don’t withhold as soon as <code>ρ̂ &gt; ρ_max</code>.</strong> For 95%, withhold only far beyond it (<code>τ</code> ≈ 6–15 dB here); for 99%, never.</li>
+<li><strong>With fading, its unpredictable part sets the cost</strong> (about 10× perfect CSI’s power for 99%), and a ray-traced map no longer helps. Without fading, a map of each layout (a digital twin) is far cheaper, if every layout can be ray-traced.</li>
+<li><strong>Pick <code>Γ</code> so that reaching it means arriving intact:</strong> about 10 dB for 392 uncoded bits.</li>
+</ul>
+<p>The numbers depend on the setting: random moves (a learned policy moves differently), FindGoal’s open layouts, and Rayleigh fading (the worst case; a line-of-sight component makes fading milder).</p>
+<div id="25791ad7" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>tuned <span class="op">=</span> {(f, name): deploy(name, f, <span class="fl">0.99</span>, taus<span class="op">=</span>TAUS) <span class="cf">for</span> f <span class="kw">in</span> (<span class="va">False</span>, <span class="va">True</span>) <span class="cf">for</span> name <span class="kw">in</span> runs[f]}</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="bu">all</span>(d[<span class="st">'reached'</span>] <span class="op">&gt;</span> <span class="fl">0.985</span> <span class="cf">for</span> (f, name), d <span class="kw">in</span> tuned.items() <span class="cf">if</span> name <span class="op">!=</span> <span class="st">"C3-WM's"</span>)       <span class="co"># the margins transfer</span></span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="kw">not</span> <span class="bu">any</span>(tuned[f, <span class="st">"C3-WM's"</span>][<span class="st">'met'</span>] <span class="cf">for</span> f <span class="kw">in</span> (<span class="va">False</span>, <span class="va">True</span>))                             <span class="co"># the bias, which no margin fixes</span></span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="kw">not</span> <span class="bu">any</span>(deploy(name, <span class="va">True</span>, <span class="fl">0.99</span>)[<span class="st">'met'</span>] <span class="cf">for</span> name <span class="kw">in</span> runs[<span class="va">True</span>])                        <span class="co"># withholding (τ = 0) falls short</span></span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> tuned[<span class="va">False</span>, <span class="st">'geometry + history quantile'</span>][<span class="st">'power'</span>] <span class="op">&lt;</span> tuned[<span class="va">False</span>, <span class="st">'history quantile'</span>][<span class="st">'power'</span>]</span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="bu">abs</span>(np.mean(reached) <span class="op">-</span> chosen[<span class="st">'reached'</span>]) <span class="op">&lt;</span> <span class="fl">0.01</span> <span class="kw">and</span> <span class="bu">abs</span>(np.mean(power) <span class="op">/</span> np.mean(perfect) <span class="op">-</span> chosen[<span class="st">'power'</span>]) <span class="op">&lt;</span> <span class="fl">0.1</span> <span class="op">*</span> chosen[<span class="st">'power'</span>]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/Ahmed-Khaled-Saleh\.github\.io\/comm-core");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/Ahmed-Khaled-Saleh/comm-core/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div></div></footer></body></html>
