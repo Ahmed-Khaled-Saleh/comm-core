@@ -76,9 +76,12 @@ To decide when messages go out, swap the protocol, e.g. [`TDMAProtocol`](https:
 - **Core:** [core](https://Ahmed-Khaled-Saleh.github.io/comm-core/core.html), [topology](https://Ahmed-Khaled-Saleh.github.io/comm-core/topology.html), [channel](https://Ahmed-Khaled-Saleh.github.io/comm-core/channel.html),
   [protocol](https://Ahmed-Khaled-Saleh.github.io/comm-core/protocol.html), [backend](https://Ahmed-Khaled-Saleh.github.io/comm-core/backend.html), [network](https://Ahmed-Khaled-Saleh.github.io/comm-core/network.html),
   [metrics](https://Ahmed-Khaled-Saleh.github.io/comm-core/metrics.html).
-- **Radio:** [propagation](https://Ahmed-Khaled-Saleh.github.io/comm-core/propagation.html), [system level](https://Ahmed-Khaled-Saleh.github.io/comm-core/system.html),
-  [link level](https://Ahmed-Khaled-Saleh.github.io/comm-core/link.html), [Sionna RT](https://Ahmed-Khaled-Saleh.github.io/comm-core/sionna_rt.html), [Sionna SYS](https://Ahmed-Khaled-Saleh.github.io/comm-core/sionna_sys.html),
-  [Sionna PHY](https://Ahmed-Khaled-Saleh.github.io/comm-core/sionna_phy.html).
+- **Signal processing** (`comm_core.dsp`): [source coding](https://Ahmed-Khaled-Saleh.github.io/comm-core/dsp/source_coding.html),
+  [modulation](https://Ahmed-Khaled-Saleh.github.io/comm-core/dsp/modulation.html), [signal model](https://Ahmed-Khaled-Saleh.github.io/comm-core/dsp/signal.html).
+- **Radio:** [fading](https://Ahmed-Khaled-Saleh.github.io/comm-core/fading.html), [power control](https://Ahmed-Khaled-Saleh.github.io/comm-core/power_control.html),
+  [interference](https://Ahmed-Khaled-Saleh.github.io/comm-core/interference.html), [PHY abstraction](https://Ahmed-Khaled-Saleh.github.io/comm-core/phy_abstraction.html),
+  [link adaptation](https://Ahmed-Khaled-Saleh.github.io/comm-core/link_adaptation.html), [radio channels](https://Ahmed-Khaled-Saleh.github.io/comm-core/radio.html), [system level](https://Ahmed-Khaled-Saleh.github.io/comm-core/system_level.html),
+  [link level](https://Ahmed-Khaled-Saleh.github.io/comm-core/link_level.html), [Sionna RT](https://Ahmed-Khaled-Saleh.github.io/comm-core/sionna_rt.html).
 
 ## Developer guide
 
