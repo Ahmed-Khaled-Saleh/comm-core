@@ -32,7 +32,7 @@ comm_core = "comm_core._modidx:d"
 version = {attr = "comm_core.__version__"}
 
 [tool.setuptools.packages.find]
-include = ["comm_core"]
+include = ["comm_core", "comm_core.*"]
 
 [tool.nbdev]
 custom_sidebar = true

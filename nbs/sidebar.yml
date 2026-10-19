@@ -27,6 +27,11 @@ website:
           - network.ipynb
           - metrics.ipynb
           - init.ipynb
+      - section: Signal processing
+        contents:
+          - dsp/source_coding.ipynb
+          - dsp/modulation.ipynb
+          - dsp/signal.ipynb
       - section: Radio
         contents:
           - fading.ipynb

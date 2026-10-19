@@ -15,7 +15,7 @@ import numpy as np
 
 from .block import Block
 from .core import Message, Transmission, TransmissionResult
-from .link import Codec, IndexCodec
+from .dsp.source_coding import Codec, IndexCodec
 from .fading import Fading
 from .sionna_sys import SionnaErrorModel
 from .interference import SINR

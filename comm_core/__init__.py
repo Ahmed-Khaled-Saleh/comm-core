@@ -105,16 +105,25 @@ from comm_core.radio import (
 
 from .system import SystemLevelChannel
 
-from comm_core.link import (
+from comm_core.dsp.source_coding import (
     to_bits,
     from_bits,
     Codec,
     IndexCodec,
     UniformQuantizer,
+)
+
+from comm_core.dsp.modulation import (
     Modulation,
     BPSK,
+)
+
+from comm_core.dsp.signal import (
     awgn,
-    propagate,
+    apply_channel,
+)
+
+from comm_core.link import (
     BitLevelLink,
     LinkLevelChannel,
 )
@@ -208,7 +217,7 @@ __all__ = [
     "Modulation",
     "BPSK",
     "awgn",
-    "propagate",
+    "apply_channel",
     "BitLevelLink",
     "LinkLevelChannel",
 
