@@ -35,7 +35,7 @@ from comm_core.topology import (
 from comm_core.channel import (
     Channel,
     IdentityChannel,
-    AWGNChannel,
+    ErasureChannel,
     FragmentingChannel,
 )
 
@@ -150,7 +150,7 @@ __all__ = [
 
     "Channel",
     "IdentityChannel",
-    "AWGNChannel",
+    "ErasureChannel",
     "FragmentingChannel",
 
     "Protocol",
