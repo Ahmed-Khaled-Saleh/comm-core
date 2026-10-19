@@ -14,7 +14,7 @@ import numpy as np
 from ..block import _is_torch
 
 # %% auto #0
-__all__ = ['Modulation', 'BPSK']
+__all__ = ['Modulation', 'BPSK', 'SionnaModulation']
 
 # %% ../../nbs/dsp/modulation.ipynb #e5c4328c
 def _conj(h):
@@ -42,13 +42,53 @@ class Modulation(ABC):
 
 
 class BPSK(Modulation):
-    "Binary phase-shift keying: bit 0 -> -1, bit 1 -> +1."
+    "Binary phase-shift keying, labelled as Sionna's 1-bit PAM: bit 0 -> +1, bit 1 -> -1."
 
     bits_per_symbol = 1
 
     def modulate(self, bits):
-        return 2.0 * bits - 1.0
+        return 1.0 - 2.0 * bits
 
     def demodulate(self, received, h):
-        "Matched filter, which is the maximum-likelihood detector for BPSK: the sign of Re(y h*)."
-        return _real(received * _conj(h)) > 0
+        "Matched filter, which is the maximum-likelihood detector for BPSK: bit 1 where Re(y h*) is negative."
+        return _real(received * _conj(h)) < 0
+
+# %% ../../nbs/dsp/modulation.ipynb #6793eed5
+class SionnaModulation(Modulation):
+    "A Sionna constellation (QAM, PAM, custom) as a `Modulation`: Sionna's `Mapper`; a one-tap equalizer, then its `Demapper`'s hard decisions."
+
+    def __init__(
+        self,
+        constellation_type: str | None = 'qam', # Sionna's 'qam', 'pam' or 'custom'; None with `constellation`
+        num_bits_per_symbol: int | None = 2, # Bits per symbol, e.g. 4 for 16-QAM; None with `constellation`
+        constellation=None, # A `sionna.phy.mapping.Constellation`, instead of the two above
+        device: str | None = None, # Torch device; None: Sionna's default (a GPU if there is one)
+        precision: str = 'single', # 'single' or 'double'
+    ):
+        import torch
+        from sionna.phy.mapping import Demapper, Mapper
+        self._torch = torch
+        if constellation is not None:
+            constellation_type = num_bits_per_symbol = None
+        self.mapper = Mapper(constellation_type, num_bits_per_symbol, constellation=constellation, precision=precision,
+                             device=device)
+        self.constellation = self.mapper.constellation
+        self.demapper = Demapper('maxlog', constellation=self.constellation, hard_out=True, precision=precision,
+                                 device=device)
+        self.bits_per_symbol = int(self.constellation.num_bits_per_symbol)
+        self.device = self.mapper.device
+        self.real = torch.float64 if precision == 'double' else torch.float32
+        self.complex = torch.complex128 if precision == 'double' else torch.complex64
+
+    def modulate(self, bits):
+        "Sionna's `Mapper`: (..., num_bits / bits_per_symbol) symbols."
+        x = self.mapper(self._torch.as_tensor(bits, device=self.device).to(self.real))
+        return x if _is_torch(bits) else x.cpu().numpy().astype(np.complex128)
+
+    def demodulate(self, received, h):
+        "The closest point's bits (Sionna's max-log `Demapper`, hard decisions), after the one-tap equalizer y / h."
+        torch = self._torch
+        y = torch.as_tensor(received, device=self.device).to(self.complex)
+        hh = torch.as_tensor(h, device=self.device).to(self.complex)
+        bits = self.demapper(y / hh, torch.ones((), dtype=self.real, device=self.device)) > 0.5
+        return bits if _is_torch(received) else bits.cpu().numpy()

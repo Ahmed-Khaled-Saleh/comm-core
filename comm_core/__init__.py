@@ -116,6 +116,7 @@ from comm_core.dsp.source_coding import (
 from comm_core.dsp.modulation import (
     Modulation,
     BPSK,
+    SionnaModulation,
 )
 
 from comm_core.dsp.signal import (
@@ -216,6 +217,7 @@ __all__ = [
     "UniformQuantizer",
     "Modulation",
     "BPSK",
+    "SionnaModulation",
     "awgn",
     "apply_channel",
     "BitLevelLink",
