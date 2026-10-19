@@ -53,7 +53,7 @@ class BPSK(Modulation):
         "Matched filter, which is the maximum-likelihood detector for BPSK: bit 1 where Re(y h*) is negative."
         return _real(received * _conj(h)) < 0
 
-# %% ../../nbs/dsp/modulation.ipynb #6793eed5
+# %% ../../nbs/dsp/modulation.ipynb #00db6808
 class SionnaModulation(Modulation):
     "A Sionna constellation (QAM, PAM, custom) as a `Modulation`: Sionna's `Mapper`; a one-tap equalizer, then its `Demapper`'s hard decisions."
 

@@ -9,6 +9,7 @@ Docs: https://Ahmed-Khaled-Saleh.github.io/comm-core/init.html.md"""
 __all__ = []
 
 # %% ../nbs/init.ipynb #2f52ddfc
+# core
 from comm_core.block import (
     Block,
     Pipeline,
@@ -55,8 +56,36 @@ from comm_core.backend import (
     to_results,
 )
 
-from .network import Network
+from comm_core.network import (
+    Network,
+)
 
+from comm_core.metrics import (
+    CommunicationMetrics,
+    MetricsCollector,
+)
+
+# signal processing
+from comm_core.dsp.source_coding import (
+    to_bits,
+    from_bits,
+    Codec,
+    IndexCodec,
+    UniformQuantizer,
+)
+
+from comm_core.dsp.modulation import (
+    Modulation,
+    BPSK,
+    SionnaModulation,
+)
+
+from comm_core.dsp.signal import (
+    awgn,
+    apply_channel,
+)
+
+# radio, in the order of a channel's blocks
 from comm_core.fading import (
     Fading,
     NoFading,
@@ -92,10 +121,15 @@ from comm_core.phy_abstraction import (
     ThresholdErrorModel,
     EESMErrorModel,
     eesm,
+    SionnaErrorModel,
     Decide,
 )
 
-from .link_adaptation import LinkAdaptation
+from comm_core.link_adaptation import (
+    LinkAdaptation,
+    NRMCSTable,
+    nr_allocation,
+)
 
 from comm_core.radio import (
     Airtime,
@@ -103,44 +137,24 @@ from comm_core.radio import (
     InterferenceBackend,
 )
 
-from .system import SystemLevelChannel
-
-from comm_core.dsp.source_coding import (
-    to_bits,
-    from_bits,
-    Codec,
-    IndexCodec,
-    UniformQuantizer,
+from comm_core.system_level import (
+    SystemLevelChannel,
 )
 
-from comm_core.dsp.modulation import (
-    Modulation,
-    BPSK,
-    SionnaModulation,
-)
-
-from comm_core.dsp.signal import (
-    awgn,
-    apply_channel,
-)
-
-from comm_core.link import (
+from comm_core.link_level import (
     BitLevelLink,
     LinkLevelChannel,
+    SionnaLink,
+    SionnaLinkChannel,
 )
 
-from .sionna_rt import SionnaRTChannel, trace_paths
-
-from .sionna_sys import SionnaErrorModel
-
-from .sionna_phy import SionnaLink, SionnaLinkChannel
-
-from comm_core.metrics import (
-    CommunicationMetrics,
-    MetricsCollector,
+from comm_core.sionna_rt import (
+    SionnaRTChannel,
+    trace_paths,
 )
 
 __all__ = [
+    # core
     "Block",
     "Pipeline",
     "Named",
@@ -177,6 +191,24 @@ __all__ = [
 
     "Network",
 
+    "CommunicationMetrics",
+    "MetricsCollector",
+
+    # signal processing
+    "to_bits",
+    "from_bits",
+    "Codec",
+    "IndexCodec",
+    "UniformQuantizer",
+
+    "Modulation",
+    "BPSK",
+    "SionnaModulation",
+
+    "awgn",
+    "apply_channel",
+
+    # radio, in the order of a channel's blocks
     "Fading",
     "NoFading",
     "RayleighFading",
@@ -186,14 +218,6 @@ __all__ = [
     "grid_points",
     "effective_coefficient",
 
-    "bpsk_bit_error_rate",
-    "packet_error_rate",
-    "ErrorModel",
-    "BPSKErrorModel",
-    "ThresholdErrorModel",
-    "EESMErrorModel",
-    "eesm",
-    "LinkAdaptation",
     "PowerControl",
     "FixedPower",
     "ChannelInversion",
@@ -202,33 +226,35 @@ __all__ = [
     "MapChannelInversion",
     "gain_windows",
     "fit_gain_predictor",
-    "SINR",
-    "Decide",
-    "Airtime",
+
     "Interference",
+    "SINR",
+
+    "bpsk_bit_error_rate",
+    "packet_error_rate",
+    "ErrorModel",
+    "BPSKErrorModel",
+    "ThresholdErrorModel",
+    "EESMErrorModel",
+    "eesm",
+    "SionnaErrorModel",
+    "Decide",
+
+    "LinkAdaptation",
+    "NRMCSTable",
+    "nr_allocation",
+
+    "Airtime",
     "RadioChannel",
-    "SystemLevelChannel",
     "InterferenceBackend",
 
-    "to_bits",
-    "from_bits",
-    "Codec",
-    "IndexCodec",
-    "UniformQuantizer",
-    "Modulation",
-    "BPSK",
-    "SionnaModulation",
-    "awgn",
-    "apply_channel",
+    "SystemLevelChannel",
+
     "BitLevelLink",
     "LinkLevelChannel",
-
-    "SionnaRTChannel",
-    "trace_paths",
-    "SionnaErrorModel",
     "SionnaLink",
     "SionnaLinkChannel",
 
-    "CommunicationMetrics",
-    "MetricsCollector",
+    "SionnaRTChannel",
+    "trace_paths",
 ]

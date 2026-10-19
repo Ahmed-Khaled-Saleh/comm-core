@@ -40,8 +40,6 @@ website:
           - phy_abstraction.ipynb
           - link_adaptation.ipynb
           - radio.ipynb
-          - system.ipynb
-          - link.ipynb
+          - system_level.ipynb
+          - link_level.ipynb
           - sionna_rt.ipynb
-          - sionna_sys.ipynb
-          - sionna_phy.ipynb

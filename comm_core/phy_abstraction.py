@@ -1,4 +1,4 @@
-"""A transmission's packet error rate from its SINR, without its bits; and the draw of what arrives.
+"""A transmission's packet error rate from its SINR, without its bits: analytic models, EESM, and 5G NR from Sionna SYS; and the draw of what arrives.
 
 Docs: https://Ahmed-Khaled-Saleh.github.io/comm-core/phy_abstraction.html.md"""
 
@@ -14,10 +14,11 @@ from typing import List, Sequence, Tuple
 import numpy as np
 
 from .block import Block
+from .link_adaptation import LinkAdaptation, NRMCSTable
 
 # %% auto #0
 __all__ = ['bpsk_bit_error_rate', 'packet_error_rate', 'ErrorModel', 'BPSKErrorModel', 'ThresholdErrorModel', 'eesm',
-           'EESMErrorModel', 'Decide']
+           'EESMErrorModel', 'Decide', 'SionnaErrorModel']
 
 # %% ../nbs/phy_abstraction.ipynb #08c10dae
 def bpsk_bit_error_rate(
@@ -166,3 +167,79 @@ class Decide(Block):
             if active is None or active[k]:
                 success[k] = self.rng.random() >= per[k]
         return success
+
+# %% ../nbs/phy_abstraction.ipynb #3ea0f90b
+class SionnaErrorModel(ErrorModel):
+    "5G NR PHY abstraction of Sionna SYS: EESM over the subcarriers, LDPC BLER tables, an MCS per transmission."
+
+    def __init__(
+        self,
+        mcs_index: int | None = None, # A fixed MCS; None: link adaptation, the highest MCS meeting `bler_target`
+        bler_target: float = 0.1, # Link adaptation's target TBLER
+        mcs_table_index: int = 1, # 5G NR MCS table: 1 (up to 64-QAM) or 2 (up to 256-QAM)
+        mcs_category: int = 0, # 0: PUSCH (uplink), 1: PDSCH (downlink)
+        device: str | None = None, # Torch device; None: Sionna's default (a GPU if there is one)
+        precision: str = 'single', # 'single' or 'double'
+        mcs_indices: Sequence[int] | None = None, # Link adaptation's candidate MCSs; None: all of the table's
+    ):
+        import torch
+        from sionna.sys import EESM, PHYAbstraction
+        self._torch = torch
+        self.phy = PHYAbstraction(precision=precision, device=device)
+        self.eesm = EESM(precision=precision, device=device)
+        self.device = self.phy.device
+        self.dtype = torch.float64 if precision == 'double' else torch.float32
+        self.link_adaptation = LinkAdaptation(bler_target)      # over the candidate MCSs, slowest to fastest
+        self.bler_target, self.mcs_table_index, self.mcs_category = bler_target, mcs_table_index, mcs_category
+        self.table = NRMCSTable(mcs_table_index, mcs_category, mcs_indices, device=self.device)   # the candidates
+        valid = self.table.indices
+        if mcs_index is not None and mcs_index not in valid:
+            raise ValueError(f"mcs_index {mcs_index}: one of {valid} for MCS table {mcs_table_index}")
+        self.mcs_index = mcs_index
+        self.mcs = torch.tensor(valid if mcs_index is None else [mcs_index], dtype=torch.int32, device=self.device)
+        self.modulation_order, self.coderate = map(list, zip(*(self.table.mcs(m) for m in self.mcs.tolist())))
+
+    def allocation(
+        self,
+        num_bits: int, # Payload size
+        mcs: int, # MCS index
+    ) -> tuple:
+        "(resource elements, TB size) of a payload at an MCS (see `NRMCSTable`)."
+        return self.table.allocation(num_bits, mcs)
+
+    @property
+    def bler_target(self) -> float:
+        "Link adaptation's target TBLER."
+        return self.link_adaptation.target
+
+    @bler_target.setter
+    def bler_target(self, value: float) -> None:
+        self.link_adaptation.target = value
+
+    def rate(self, sinr, size_bits, group=None):
+        torch = self._torch
+        n, width, M = len(sinr), max(len(s) for s in sinr), len(self.mcs)
+        grid = np.zeros((n, width))                        # 0: a subcarrier the transmission does not use
+        for k, s in enumerate(sinr):
+            grid[k, :len(s)] = np.minimum(s, 1e12)
+        s = torch.as_tensor(grid, dtype=self.dtype, device=self.device)[:, None, :, None, None].expand(n, 1, width, M, 1)
+        mcs = self.mcs[None].expand(n, M)
+        sinr_eff = self.eesm(s, mcs, mcs_table_index=self.mcs_table_index, mcs_category=self.mcs_category)
+        mcs_list = self.mcs.cpu().tolist()
+        re = torch.as_tensor([[self.allocation(max(int(b), 1), m)[0] for m in mcs_list] for b in size_bits],
+                             dtype=torch.int32, device=self.device)
+        tbler = self.phy(mcs, sinr_eff=sinr_eff, num_allocated_re=re, mcs_table_index=self.mcs_table_index,
+                         mcs_category=self.mcs_category, check_mcs_index_validity=False)[3]
+        tbler = torch.nan_to_num(tbler, nan=1.0, posinf=1.0).clamp(0, 1)   # no table entry: lost
+        if self.mcs_index is None:                          # the highest MCS meeting the target, else the lowest
+            best = self.link_adaptation(tbler, group)       # one per broadcast
+        else:
+            best = torch.zeros(n, dtype=torch.long, device=self.device)
+        rows = torch.arange(n, device=self.device)
+        per = tbler[rows, best].cpu().numpy().astype(float)
+        res = re[rows, best].cpu().numpy().astype(int)
+        eff = sinr_eff[rows, best].cpu().numpy().astype(float)
+        mcs_used = self.mcs[best].cpu().numpy()
+        info = [{'mcs': int(m), 'sinr_eff_db': 10 * math.log10(e) if e > 0 else -math.inf, 'resource_elements': int(r)}
+                for m, e, r in zip(mcs_used, eff, res)]
+        return per, res, info
