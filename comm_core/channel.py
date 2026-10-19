@@ -20,7 +20,7 @@ from .topology import Link
     
 
 # %% auto #0
-__all__ = ['Channel', 'IdentityChannel', 'AWGNChannel', 'FragmentingChannel']
+__all__ = ['Channel', 'IdentityChannel', 'ErasureChannel', 'FragmentingChannel']
 
 # %% ../nbs/channel.ipynb #3172a976
 class Channel(ABC):
@@ -69,22 +69,15 @@ class IdentityChannel(Channel):
 
 
 # %% ../nbs/channel.ipynb #1b262752
-class AWGNChannel(Channel):
-    """
-    Simple analytical channel.
-
-    This intentionally models only packet success/failure
-    rather than individual bits.
-    """
+class ErasureChannel(Channel):
+    "Each packet is lost with a fixed probability, independently of everything else (a packet erasure channel); no radio is modelled."
 
     def __init__(
         self,
-        snr_db: float, # Signal-to-noise ratio (reported in the results)
-        packet_error_rate: float = 0.0, # Probability that a packet is lost
+        loss_rate: float = 0.0, # Probability that a packet is lost
         seed: int | None = None, # Seed of the channel's own random generator
     ):
-        self.snr_db = snr_db
-        self.packet_error_rate = packet_error_rate
+        self.loss_rate = loss_rate
         self.rng = random.Random(seed)
 
     def reset(self, seed: int | None = None) -> None:
@@ -98,25 +91,16 @@ class AWGNChannel(Channel):
         link: Link,
     ) -> TransmissionResult:
 
-        success = (
-            self.rng.random()
-            >= self.packet_error_rate
-        )
-
+        success = self.rng.random() >= self.loss_rate
         message = transmission.message
 
         return TransmissionResult(
             success=success,
             transmission=transmission,
-            payload=(
-                message.payload
-                if success
-                else None
-            ),
+            payload=message.payload if success else None,
             latency=0.0,
             size_bits=message.size_bits or 0,
-            snr_db=self.snr_db,
-            error_rate=self.packet_error_rate,
+            error_rate=self.loss_rate,
         )
 
 # %% ../nbs/channel.ipynb #035d1016

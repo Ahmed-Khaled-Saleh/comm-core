@@ -1,4 +1,4 @@
-"""The rate of each transmission (e.g. its MCS): the fastest meeting a target error rate, one for all the copies of a broadcast.
+"""The rate of each transmission (e.g. its MCS): the fastest meeting a target error rate, one for all the copies of a broadcast; and the MCSs of 5G NR.
 
 Docs: https://Ahmed-Khaled-Saleh.github.io/comm-core/link_adaptation.html.md"""
 
@@ -7,6 +7,7 @@ Docs: https://Ahmed-Khaled-Saleh.github.io/comm-core/link_adaptation.html.md"""
 # %% ../nbs/link_adaptation.ipynb #023195f7
 from __future__ import annotations
 
+import math
 from collections import defaultdict
 from typing import Sequence
 
@@ -15,7 +16,7 @@ import numpy as np
 from .block import Block, _is_torch
 
 # %% auto #0
-__all__ = ['LinkAdaptation']
+__all__ = ['MAX_CODERATE', 'LinkAdaptation', 'nr_allocation', 'NRMCSTable']
 
 # %% ../nbs/link_adaptation.ipynb #a88a4ee8
 class LinkAdaptation(Block):
@@ -49,3 +50,79 @@ class LinkAdaptation(Block):
             return torch.where(ok.any(1), fastest, torch.zeros_like(fastest))
         fastest = (ok * np.arange(ok.shape[1])).argmax(1)
         return np.where(ok.any(1), fastest, 0)
+
+# %% ../nbs/link_adaptation.ipynb #1e967eb2
+MAX_CODERATE = 0.95                                        # NR: a UE may skip decoding above this effective code rate
+
+
+def nr_allocation(
+    num_bits: int, # Payload size
+    modulation_order: int, # Bits per QAM symbol of the MCS
+    coderate: float, # Code rate of the MCS
+) -> tuple:
+    "(resource elements, TB size): the fewest resource elements whose NR transport block holds `num_bits`."
+    import torch
+    from sionna.phy.nr.utils import calculate_tb_size
+    num_bits = max(int(num_bits), 1)
+    first = max(1, math.ceil(num_bits / (modulation_order * coderate)))
+    for lo in range(first, first + 100_000, 2048):         # candidates in chunks; usually the first ones fit
+        re = torch.arange(lo, lo + 2048)
+        tb, _, num_cb, tb_crc, cb_crc = calculate_tb_size(
+            modulation_order=torch.full_like(re, modulation_order), target_coderate=torch.full(re.shape, float(coderate)),
+            num_coded_bits=re * modulation_order, return_cw_length=False, verbose=False)
+        rate = (tb + tb_crc + num_cb * cb_crc) / (re * modulation_order)
+        fits = (tb >= num_bits) & (rate <= MAX_CODERATE)
+        if fits.any():
+            i = int(torch.nonzero(fits)[0])
+            return int(re[i]), int(tb[i])
+    raise ValueError(f"no NR allocation for {num_bits} bits")
+
+
+class NRMCSTable:
+    "The MCSs of a 5G NR MCS table: their modulation orders and code rates, and the resource elements of a payload at each (cached)."
+
+    def __init__(
+        self,
+        mcs_table_index: int = 1, # 5G NR MCS table: 1 (up to 64-QAM) or 2 (up to 256-QAM)
+        mcs_category: int = 0, # 0: PUSCH (uplink), 1: PDSCH (downlink)
+        mcs_indices: Sequence[int] | None = None, # The MCSs to keep; None: all of the table's
+        min_coderate: float = 0.0, # The MCSs with lower code rates are left out (e.g. those an encoder can't do)
+        device: str | None = None, # Torch device; None: Sionna's default
+    ):
+        import torch
+        from sionna.phy.nr.utils import MCSDecoderNR
+        decoder = MCSDecoderNR(device=device)
+        self.mcs_table_index, self.mcs_category = mcs_table_index, mcs_category
+        self.indices, self.modulation_order, self.coderate = [], [], []
+        for m in range(32):                                # the MCS indices of this table
+            try:
+                q, r = decoder(torch.tensor([m], dtype=torch.int32, device=device), mcs_table_index=mcs_table_index,
+                               mcs_category=mcs_category, check_validity=True)
+            except ValueError:
+                continue
+            if (mcs_indices is None or m in set(mcs_indices)) and float(r) >= min_coderate:
+                self.indices.append(m)
+                self.modulation_order.append(int(q))
+                self.coderate.append(float(r))
+        self._allocations = {}                             # (bits, MCS) -> (resource elements, TB size)
+
+    def __len__(self) -> int:
+        return len(self.indices)
+
+    def mcs(
+        self,
+        mcs: int, # MCS index
+    ) -> tuple:
+        "(modulation order, code rate) of an MCS."
+        i = self.indices.index(mcs)
+        return self.modulation_order[i], self.coderate[i]
+
+    def allocation(
+        self,
+        num_bits: int, # Payload size
+        mcs: int, # MCS index
+    ) -> tuple:
+        "(resource elements, TB size) of a payload at an MCS (see `nr_allocation`)."
+        if (num_bits, mcs) not in self._allocations:
+            self._allocations[num_bits, mcs] = nr_allocation(num_bits, *self.mcs(mcs))
+        return self._allocations[num_bits, mcs]

@@ -14,7 +14,7 @@ import numpy as np
 
 from .block import Block
 from .core import Transmission
-from .propagation import Fading
+from .fading import Fading
 from .topology import Link
 
 # %% auto #0
