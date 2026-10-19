@@ -18,7 +18,7 @@ from .channel import Channel
 from .core import Transmission, TransmissionResult
 from .interference import SINR, Interference
 from .power_control import FixedPower, PowerControl
-from .propagation import Fading, NoFading
+from .fading import Fading, NoFading
 from .topology import Link
 
 # %% auto #0

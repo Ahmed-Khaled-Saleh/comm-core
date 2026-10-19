@@ -57,7 +57,7 @@ from comm_core.backend import (
 
 from .network import Network
 
-from comm_core.propagation import (
+from comm_core.fading import (
     Fading,
     NoFading,
     RayleighFading,

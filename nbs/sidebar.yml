@@ -29,7 +29,7 @@ website:
           - init.ipynb
       - section: Radio
         contents:
-          - propagation.ipynb
+          - fading.ipynb
           - power_control.ipynb
           - interference.ipynb
           - phy_abstraction.ipynb

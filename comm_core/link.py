@@ -14,7 +14,7 @@ import numpy as np
 
 from .block import Block, _is_torch
 from .core import Message, Transmission, TransmissionResult
-from .propagation import Fading, effective_coefficient
+from .fading import Fading, effective_coefficient
 from .power_control import PowerControl
 from .radio import RadioChannel
 from .topology import Link

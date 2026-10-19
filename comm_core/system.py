@@ -12,7 +12,7 @@ from typing import List
 from .block import Block
 from .phy_abstraction import BPSKErrorModel, Decide, ErrorModel, ThresholdErrorModel
 from .power_control import PowerControl
-from .propagation import Fading
+from .fading import Fading
 from .radio import RadioChannel
 
 # %% auto #0

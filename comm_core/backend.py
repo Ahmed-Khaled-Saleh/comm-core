@@ -15,7 +15,7 @@ import numpy as np
 
 from .block import Block, Pipeline
 from .core import Transmission, TransmissionResult
-from .propagation import effective_coefficient
+from .fading import effective_coefficient
 from .topology import Link
 from .channel import Channel
 

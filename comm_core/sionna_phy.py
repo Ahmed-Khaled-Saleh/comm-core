@@ -16,7 +16,7 @@ import numpy as np
 from .block import Block
 from .core import Message, Transmission, TransmissionResult
 from .link import Codec, IndexCodec
-from .propagation import Fading
+from .fading import Fading
 from .sionna_sys import SionnaErrorModel
 from .power_control import PowerControl
 from .radio import RadioChannel

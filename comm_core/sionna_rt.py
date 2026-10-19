@@ -13,7 +13,7 @@ from typing import Mapping, Sequence
 import numpy as np
 
 from .core import NodeId
-from .propagation import RayTracedFading, RayTracedPathsFading, grid_points
+from .fading import RayTracedFading, RayTracedPathsFading, grid_points
 from .phy_abstraction import bpsk_bit_error_rate, packet_error_rate
 from .power_control import FixedPower
 from .system import SystemLevelChannel
