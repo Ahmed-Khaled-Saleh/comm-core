@@ -1,4 +1,4 @@
-"""What the radio channels of both levels share: their blocks, from the fading to the airtime; and the medium a step's transmissions share.
+"""What the radio channels of both levels share: the fading, the power control and the airtime around their receiver; and the medium a step's transmissions share.
 
 Docs: https://Ahmed-Khaled-Saleh.github.io/comm-core/radio.html.md"""
 
@@ -16,7 +16,7 @@ from .backend import STEP_INPUTS, PipelineBackend, step_inputs, to_results
 from .block import Block, Pipeline, _child_seed
 from .channel import Channel
 from .core import Transmission, TransmissionResult
-from .interference import SINR, Interference
+from .interference import Interference
 from .power_control import FixedPower, PowerControl
 from .fading import Fading, NoFading
 from .topology import Link
@@ -46,7 +46,7 @@ class Airtime(Block):
 
 
 class RadioChannel(Channel):
-    "A channel over radio links, made of blocks: a `Fading` (h), a `PowerControl` (P), the SINR, a receiver (the subclass's), the airtime."
+    "A channel over radio links, made of blocks: a `Fading` (h), a `PowerControl` (P), a receiver (the subclass's), the airtime."
 
     def __init__(
         self,
@@ -58,12 +58,12 @@ class RadioChannel(Channel):
         self.fading = fading if fading is not None else NoFading()
         self.power_control = power_control if power_control is not None else FixedPower()
         self.noise_power = noise_power
-        self.sinr, self.airtime = SINR(), Airtime()
+        self.airtime = Airtime()
         self._pipelines = {}
         self.reset(seed)
 
     def receiver(self) -> List[Block]:
-        "The blocks between the SINR and the airtime, which decide what arrives (the last one draws it)."
+        "The blocks between the power control (or the interference) and the airtime, which decide what arrives (the last one draws it)."
         raise NotImplementedError
 
     def blocks(
@@ -71,7 +71,7 @@ class RadioChannel(Channel):
         interference: Block | None = None, # An `Interference`, after the power control (None: none)
     ) -> List[Block]:
         "The channel's blocks, in order."
-        return [self.fading, self.power_control, *([interference] if interference is not None else []), self.sinr,
+        return [self.fading, self.power_control, *([interference] if interference is not None else []),
                 *self.receiver(), self.airtime]
 
     def pipeline(

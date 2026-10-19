@@ -203,7 +203,6 @@ class BitLevelLink(Block):
         transmission, # The transmissions (their payloads)
         h: np.ndarray, # h of each at each subcarrier, (n, K) (several: their mean power)
         power: np.ndarray, # Their transmit powers
-        sinr: np.ndarray, # Their SINR, (n, K)
         noise_power: float, # Noise power at the receivers
         interference: np.ndarray | None = None, # Power of the other transmissions at each receiver (added to the noise)
         active: np.ndarray | None = None, # Whether each one is sent (None: all); the others only count their bits
@@ -221,13 +220,13 @@ class BitLevelLink(Block):
             if np.isinf(h[k]).any():                     # same place: a perfect link
                 success[k], payload[k], error[k], num_symbols[k], info[k] = True, t.message.payload, 0.0, 0, {'bit_errors': 0}
                 continue
-            if not np.mean(sinr[k]) > 0:                 # drowned (e.g. an interferer at the receiver's place)
-                continue
+            coefficient = effective_coefficient(h[k])
+            noise = noise_power + (float(interference[k]) if interference is not None else 0.0)   # interference as noise
+            if not (float(power[k]) * abs(coefficient) ** 2 > 0 and math.isfinite(noise)):
+                continue                                 # nothing to detect: no signal, or drowned (an interferer at the receiver's place)
             last = int(bits.shape[-1])
             padded = np.pad(bits, [(0, 0)] * (bits.ndim - 1) + [(0, -last % per_symbol)])
             symbols = self.modulation.modulate(padded)
-            coefficient = effective_coefficient(h[k])
-            noise = noise_power + (float(interference[k]) if interference is not None else 0.0)   # interference as noise
             received = propagate(symbols, coefficient, float(power[k]), noise, self.rng)
             detected = np.asarray(self.modulation.demodulate(received, coefficient))[..., :last]
             bit_errors = int((detected != bits).sum())

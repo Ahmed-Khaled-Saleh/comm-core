@@ -18,6 +18,7 @@ from .core import Message, Transmission, TransmissionResult
 from .link import Codec, IndexCodec
 from .fading import Fading
 from .sionna_sys import SionnaErrorModel
+from .interference import SINR
 from .power_control import PowerControl
 from .radio import RadioChannel
 from .topology import Link
@@ -95,7 +96,7 @@ class SionnaLink(Block):
         transmission, # The transmissions (their payloads)
         h: np.ndarray, # h of each at each subcarrier, (n, K)
         power: np.ndarray, # Their transmit powers
-        sinr: np.ndarray, # Their SINR at each subcarrier, (n, K): link adaptation's
+        sinr: np.ndarray, # Their SINR at each subcarrier, (n, K): link adaptation's (the transmitter's channel knowledge)
         noise_power: float, # Noise power at the receivers, per resource element
         interference: np.ndarray | None = None, # Power of the other transmissions at each receiver (added to the noise)
         group: Sequence | None = None, # The broadcast of each (one MCS for its copies), None for a unicast
@@ -173,6 +174,7 @@ class SionnaLinkChannel(RadioChannel):
         precision: str = 'single', # 'single' or 'double'
     ):
         self.link_level = SionnaLink(codec, mcs_index, bler_target, mcs_table_index, mcs_category, num_bp_iter, device, precision)
+        self.sinr = SINR()
         super().__init__(fading, power_control, noise_power, seed)
 
     @property
@@ -189,5 +191,5 @@ class SionnaLinkChannel(RadioChannel):
         return self.link_level.device
 
     def receiver(self) -> list:
-        "The bits: `SionnaLink`."
-        return [self.link_level]
+        "The SINR (link adaptation's), then the bits: `SionnaLink`."
+        return [self.sinr, self.link_level]

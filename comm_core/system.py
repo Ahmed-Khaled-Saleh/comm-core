@@ -13,6 +13,7 @@ from .block import Block
 from .phy_abstraction import BPSKErrorModel, Decide, ErrorModel, ThresholdErrorModel
 from .power_control import PowerControl
 from .fading import Fading
+from .interference import SINR
 from .radio import RadioChannel
 
 # %% auto #0
@@ -40,9 +41,9 @@ class SystemLevelChannel(RadioChannel):
         else:
             raise ValueError(f"per_model: 'bpsk', 'threshold' or an ErrorModel, not {per_model!r}")
         self.per_model, self.snr_threshold_db = per_model, snr_threshold_db
-        self.decide = Decide()
+        self.sinr, self.decide = SINR(), Decide()
         super().__init__(fading, power_control, noise_power, seed)
 
     def receiver(self) -> List[Block]:
-        "The error model, then the draw of what arrives."
-        return [self.error_model, self.decide]
+        "The SINR, the error model, then the draw of what arrives."
+        return [self.sinr, self.error_model, self.decide]
