@@ -23,7 +23,8 @@ from comm_core.core import (
     TransmissionResult,
 )
 
-from comm_core.topology import (
+# the network layer
+from comm_core.net.topology import (
     Link,
     Topology,
     GraphTopology,
@@ -33,14 +34,14 @@ from comm_core.topology import (
     distance,
 )
 
-from comm_core.channel import (
+from comm_core.net.channel import (
     Channel,
     IdentityChannel,
     ErasureChannel,
     FragmentingChannel,
 )
 
-from comm_core.protocol import (
+from comm_core.net.protocol import (
     Protocol,
     IdealProtocol,
     SlottedProtocol,
@@ -48,7 +49,7 @@ from comm_core.protocol import (
     SlottedALOHA,
 )
 
-from comm_core.backend import (
+from comm_core.net.backend import (
     CommunicationBackend,
     AnalyticalBackend,
     PipelineBackend,
@@ -56,11 +57,11 @@ from comm_core.backend import (
     to_results,
 )
 
-from comm_core.network import (
+from comm_core.net.network import (
     Network,
 )
 
-from comm_core.metrics import (
+from comm_core.net.metrics import (
     CommunicationMetrics,
     MetricsCollector,
 )
@@ -85,8 +86,8 @@ from comm_core.dsp.signal import (
     apply_channel,
 )
 
-# radio, in the order of a channel's blocks
-from comm_core.fading import (
+# radio: what both levels share, in the order of a channel's blocks
+from comm_core.radio.fading import (
     Fading,
     NoFading,
     RayleighFading,
@@ -94,14 +95,14 @@ from comm_core.fading import (
     effective_coefficient,
 )
 
-from comm_core.ray_tracing import (
+from comm_core.radio.ray_tracing import (
     RayTracedFading,
     RayTracedPathsFading,
     grid_points,
     trace_paths,
 )
 
-from comm_core.power_control import (
+from comm_core.radio.power_control import (
     PowerControl,
     FixedPower,
     ChannelInversion,
@@ -112,12 +113,24 @@ from comm_core.power_control import (
     fit_gain_predictor,
 )
 
-from comm_core.interference import (
+from comm_core.radio.interference import (
     Interference,
     SINR,
 )
 
-from comm_core.phy_abstraction import (
+from comm_core.radio.link_adaptation import (
+    LinkAdaptation,
+    NRMCSTable,
+    nr_allocation,
+)
+
+from comm_core.radio.channel import (
+    Airtime,
+    RadioChannel,
+)
+
+# the system level
+from comm_core.radio.system.phy_abstraction import (
     bpsk_bit_error_rate,
     packet_error_rate,
     ErrorModel,
@@ -129,22 +142,12 @@ from comm_core.phy_abstraction import (
     Decide,
 )
 
-from comm_core.link_adaptation import (
-    LinkAdaptation,
-    NRMCSTable,
-    nr_allocation,
-)
-
-from comm_core.radio import (
-    Airtime,
-    RadioChannel,
-)
-
-from comm_core.system_level import (
+from comm_core.radio.system.channel import (
     SystemLevelChannel,
 )
 
-from comm_core.link_level import (
+# the link level
+from comm_core.radio.link.channel import (
     BitLevelLink,
     LinkLevelChannel,
     SionnaLink,
@@ -162,6 +165,7 @@ __all__ = [
     "Transmission",
     "TransmissionResult",
 
+    # the network layer
     "Link",
     "Topology",
     "GraphTopology",
@@ -206,7 +210,7 @@ __all__ = [
     "awgn",
     "apply_channel",
 
-    # radio, in the order of a channel's blocks
+    # radio: what both levels share, in the order of a channel's blocks
     "Fading",
     "NoFading",
     "RayleighFading",
@@ -230,6 +234,14 @@ __all__ = [
     "Interference",
     "SINR",
 
+    "LinkAdaptation",
+    "NRMCSTable",
+    "nr_allocation",
+
+    "Airtime",
+    "RadioChannel",
+
+    # the system level
     "bpsk_bit_error_rate",
     "packet_error_rate",
     "ErrorModel",
@@ -240,15 +252,9 @@ __all__ = [
     "SionnaErrorModel",
     "Decide",
 
-    "LinkAdaptation",
-    "NRMCSTable",
-    "nr_allocation",
-
-    "Airtime",
-    "RadioChannel",
-
     "SystemLevelChannel",
 
+    # the link level
     "BitLevelLink",
     "LinkLevelChannel",
     "SionnaLink",

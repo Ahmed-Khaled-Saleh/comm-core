@@ -19,14 +19,16 @@ website:
       - section: Core
         contents:
           - 00_core.ipynb
-          - topology.ipynb
-          - channel.ipynb
-          - protocol.ipynb
           - block.ipynb
-          - backend.ipynb
-          - network.ipynb
-          - metrics.ipynb
           - init.ipynb
+      - section: Network
+        contents:
+          - net/topology.ipynb
+          - net/channel.ipynb
+          - net/protocol.ipynb
+          - net/backend.ipynb
+          - net/network.ipynb
+          - net/metrics.ipynb
       - section: Signal processing
         contents:
           - dsp/source_coding.ipynb
@@ -34,12 +36,16 @@ website:
           - dsp/signal.ipynb
       - section: Radio
         contents:
-          - fading.ipynb
-          - ray_tracing.ipynb
-          - power_control.ipynb
-          - interference.ipynb
-          - phy_abstraction.ipynb
-          - link_adaptation.ipynb
-          - radio.ipynb
-          - system_level.ipynb
-          - link_level.ipynb
+          - radio/channel.ipynb
+          - radio/fading.ipynb
+          - radio/ray_tracing.ipynb
+          - radio/power_control.ipynb
+          - radio/interference.ipynb
+          - radio/link_adaptation.ipynb
+      - section: System level
+        contents:
+          - radio/system/phy_abstraction.ipynb
+          - radio/system/channel.ipynb
+      - section: Link level
+        contents:
+          - radio/link/channel.ipynb

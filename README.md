@@ -48,11 +48,11 @@ print(f'{len(received)} of 100 latents arrived ({m.packet_loss:.0%} lost), {m.bi
 
 To change what happens to the messages, swap the channel and leave the learning code as it is:
 
-- [`IdentityChannel()`](https://Ahmed-Khaled-Saleh.github.io/comm-core/channel.html#identitychannel) is perfect.
+- [`IdentityChannel()`](https://Ahmed-Khaled-Saleh.github.io/comm-core/net/channel.html#identitychannel) is perfect.
 - `SystemLevelChannel(...)` loses packets with the error rate of their SNR.
 - `LinkLevelChannel(...)` simulates every bit, so payloads arrive with bit errors.
 
-To decide when messages go out, swap the protocol, e.g. [`TDMAProtocol`](https://Ahmed-Khaled-Saleh.github.io/comm-core/protocol.html#tdmaprotocol).
+To decide when messages go out, swap the protocol, e.g. [`TDMAProtocol`](https://Ahmed-Khaled-Saleh.github.io/comm-core/net/protocol.html#tdmaprotocol).
 
 ## Documentation
 
@@ -73,15 +73,15 @@ To decide when messages go out, swap the protocol, e.g. [`TDMAProtocol`](https:
     reliability in layouts the predictor has never seen, from the link’s history, the agents’ moves and the layout.
   - [When the radio map is wrong](https://Ahmed-Khaled-Saleh.github.io/comm-core/examples/map_mismatch.html): looking the gain up in an
     imperfect ray-traced map, against learning from it.
-- **Core:** [core](https://Ahmed-Khaled-Saleh.github.io/comm-core/core.html), [topology](https://Ahmed-Khaled-Saleh.github.io/comm-core/topology.html), [channel](https://Ahmed-Khaled-Saleh.github.io/comm-core/channel.html),
-  [protocol](https://Ahmed-Khaled-Saleh.github.io/comm-core/protocol.html), [backend](https://Ahmed-Khaled-Saleh.github.io/comm-core/backend.html), [network](https://Ahmed-Khaled-Saleh.github.io/comm-core/network.html),
-  [metrics](https://Ahmed-Khaled-Saleh.github.io/comm-core/metrics.html).
+- **Core:** [core](https://Ahmed-Khaled-Saleh.github.io/comm-core/core.html), [blocks](https://Ahmed-Khaled-Saleh.github.io/comm-core/block.html).
+- **Network** (`comm_core.net`): [topology](https://Ahmed-Khaled-Saleh.github.io/comm-core/net/topology.html), [channel](https://Ahmed-Khaled-Saleh.github.io/comm-core/net/channel.html), [protocol](https://Ahmed-Khaled-Saleh.github.io/comm-core/net/protocol.html),
+  [backend](https://Ahmed-Khaled-Saleh.github.io/comm-core/net/backend.html), [network](https://Ahmed-Khaled-Saleh.github.io/comm-core/net/network.html), [metrics](https://Ahmed-Khaled-Saleh.github.io/comm-core/net/metrics.html).
 - **Signal processing** (`comm_core.dsp`): [source coding](https://Ahmed-Khaled-Saleh.github.io/comm-core/dsp/source_coding.html),
   [modulation](https://Ahmed-Khaled-Saleh.github.io/comm-core/dsp/modulation.html), [signal model](https://Ahmed-Khaled-Saleh.github.io/comm-core/dsp/signal.html).
-- **Radio:** [fading](https://Ahmed-Khaled-Saleh.github.io/comm-core/fading.html), [ray tracing](https://Ahmed-Khaled-Saleh.github.io/comm-core/ray_tracing.html), [power control](https://Ahmed-Khaled-Saleh.github.io/comm-core/power_control.html),
-  [interference](https://Ahmed-Khaled-Saleh.github.io/comm-core/interference.html), [PHY abstraction](https://Ahmed-Khaled-Saleh.github.io/comm-core/phy_abstraction.html),
-  [link adaptation](https://Ahmed-Khaled-Saleh.github.io/comm-core/link_adaptation.html), [radio channels](https://Ahmed-Khaled-Saleh.github.io/comm-core/radio.html), [system level](https://Ahmed-Khaled-Saleh.github.io/comm-core/system_level.html),
-  [link level](https://Ahmed-Khaled-Saleh.github.io/comm-core/link_level.html).
+- **Radio** (`comm_core.radio`): [radio channels](https://Ahmed-Khaled-Saleh.github.io/comm-core/radio/channel.html), [fading](https://Ahmed-Khaled-Saleh.github.io/comm-core/radio/fading.html), [ray tracing](https://Ahmed-Khaled-Saleh.github.io/comm-core/radio/ray_tracing.html),
+  [power control](https://Ahmed-Khaled-Saleh.github.io/comm-core/radio/power_control.html), [interference](https://Ahmed-Khaled-Saleh.github.io/comm-core/radio/interference.html), [link adaptation](https://Ahmed-Khaled-Saleh.github.io/comm-core/radio/link_adaptation.html).
+  - System level (`comm_core.radio.system`): [PHY abstraction](https://Ahmed-Khaled-Saleh.github.io/comm-core/radio/system/phy_abstraction.html), [the channel](https://Ahmed-Khaled-Saleh.github.io/comm-core/radio/system/channel.html).
+  - Link level (`comm_core.radio.link`): [the links and their channels](https://Ahmed-Khaled-Saleh.github.io/comm-core/radio/link/channel.html).
 
 ## Developer guide
 
