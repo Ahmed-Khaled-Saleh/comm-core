@@ -95,9 +95,11 @@ class LinkLevelChannel(RadioChannel):
         noise_power: float = 1.0, # Noise power at the receiver (same unit as the power)
         drop_corrupted: bool = False, # Lose the packets with bit errors (a CRC) instead of delivering them
         seed: int | None = None, # Seed of the noise and the fading
+        interference: bool = False, # A step's transmissions share the medium (see `RadioChannel`)
+        half_duplex: bool = True, # With interference: a node that transmits in a step cannot receive in it
     ):
         self.link_level = BitLevelLink(codec, modulation, drop_corrupted)
-        super().__init__(fading, power_control, noise_power, seed)
+        super().__init__(fading, power_control, noise_power, seed, interference, half_duplex)
 
     @property
     def codec(self) -> Codec:
@@ -247,10 +249,12 @@ class SionnaLinkChannel(RadioChannel):
         seed: int | None = None, # Seed of the noise and the fading
         device: str | None = None, # Torch device; None: Sionna's default (a GPU if there is one)
         precision: str = 'single', # 'single' or 'double'
+        interference: bool = False, # A step's transmissions share the medium (see `RadioChannel`)
+        half_duplex: bool = True, # With interference: a node that transmits in a step cannot receive in it
     ):
         self.link_level = SionnaLink(codec, mcs_index, bler_target, mcs_table_index, mcs_category, num_bp_iter, device, precision)
         self.sinr = SINR()
-        super().__init__(fading, power_control, noise_power, seed)
+        super().__init__(fading, power_control, noise_power, seed, interference, half_duplex)
 
     @property
     def codec(self) -> Codec:

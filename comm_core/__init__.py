@@ -90,11 +90,15 @@ from comm_core.fading import (
     Fading,
     NoFading,
     RayleighFading,
+    GilbertElliottFading,
+    effective_coefficient,
+)
+
+from comm_core.ray_tracing import (
     RayTracedFading,
     RayTracedPathsFading,
-    GilbertElliottFading,
     grid_points,
-    effective_coefficient,
+    trace_paths,
 )
 
 from comm_core.power_control import (
@@ -134,7 +138,6 @@ from comm_core.link_adaptation import (
 from comm_core.radio import (
     Airtime,
     RadioChannel,
-    InterferenceBackend,
 )
 
 from comm_core.system_level import (
@@ -146,11 +149,6 @@ from comm_core.link_level import (
     LinkLevelChannel,
     SionnaLink,
     SionnaLinkChannel,
-)
-
-from comm_core.sionna_rt import (
-    SionnaRTChannel,
-    trace_paths,
 )
 
 __all__ = [
@@ -212,11 +210,13 @@ __all__ = [
     "Fading",
     "NoFading",
     "RayleighFading",
+    "GilbertElliottFading",
+    "effective_coefficient",
+
     "RayTracedFading",
     "RayTracedPathsFading",
-    "GilbertElliottFading",
     "grid_points",
-    "effective_coefficient",
+    "trace_paths",
 
     "PowerControl",
     "FixedPower",
@@ -246,7 +246,6 @@ __all__ = [
 
     "Airtime",
     "RadioChannel",
-    "InterferenceBackend",
 
     "SystemLevelChannel",
 
@@ -254,7 +253,4 @@ __all__ = [
     "LinkLevelChannel",
     "SionnaLink",
     "SionnaLinkChannel",
-
-    "SionnaRTChannel",
-    "trace_paths",
 ]

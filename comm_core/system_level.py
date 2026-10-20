@@ -31,6 +31,8 @@ class SystemLevelChannel(RadioChannel):
         per_model: str | ErrorModel = 'bpsk', # 'bpsk', 'threshold', or an `ErrorModel` (e.g. `SionnaErrorModel`)
         snr_threshold_db: float = 10.0, # The 'threshold' model's SNR
         seed: int | None = None, # Seed of the packet losses and the fading
+        interference: bool = False, # A step's transmissions share the medium (see `RadioChannel`)
+        half_duplex: bool = True, # With interference: a node that transmits in a step cannot receive in it
     ):
         if isinstance(per_model, ErrorModel):
             self.error_model = per_model
@@ -42,7 +44,7 @@ class SystemLevelChannel(RadioChannel):
             raise ValueError(f"per_model: 'bpsk', 'threshold' or an ErrorModel, not {per_model!r}")
         self.per_model, self.snr_threshold_db = per_model, snr_threshold_db
         self.sinr, self.decide = SINR(), Decide()
-        super().__init__(fading, power_control, noise_power, seed)
+        super().__init__(fading, power_control, noise_power, seed, interference, half_duplex)
 
     def receiver(self) -> List[Block]:
         "The SINR, the error model, then the draw of what arrives."

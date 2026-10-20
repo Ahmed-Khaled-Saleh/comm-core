@@ -1,4 +1,4 @@
-"""What the radio channels of both levels share: the fading, the power control and the airtime around their receiver; and the medium a step's transmissions share.
+"""What the radio channels of both levels share: the fading, the power control, the interference and the airtime around their receiver.
 
 Docs: https://Ahmed-Khaled-Saleh.github.io/comm-core/radio.html.md"""
 
@@ -12,7 +12,7 @@ from typing import List, Sequence, Tuple
 
 import numpy as np
 
-from .backend import STEP_INPUTS, PipelineBackend, step_inputs, to_results
+from .backend import STEP_INPUTS, step_inputs, to_results
 from .block import Block, Pipeline, _child_seed
 from .channel import Channel
 from .core import Transmission, TransmissionResult
@@ -22,7 +22,7 @@ from .fading import Fading, NoFading
 from .topology import Link
 
 # %% auto #0
-__all__ = ['Airtime', 'RadioChannel', 'InterferenceBackend']
+__all__ = ['Airtime', 'RadioChannel']
 
 # %% ../nbs/radio.ipynb #29c61bf4
 class Airtime(Block):
@@ -54,46 +54,38 @@ class RadioChannel(Channel):
         power_control: PowerControl | None = None, # Transmit power and outages; None: `FixedPower()` (the link's tx_power_w)
         noise_power: float = 1.0, # Noise power at the receiver (same unit as the power)
         seed: int | None = None, # Seed of the channel's randomness and of the fading
+        interference: bool = False, # A batch's transmissions share the medium: each one's SINR counts the others' power
+        half_duplex: bool = True, # With interference: a node that transmits in a step cannot receive in it
     ):
         self.fading = fading if fading is not None else NoFading()
         self.power_control = power_control if power_control is not None else FixedPower()
         self.noise_power = noise_power
+        self.interference, self.half_duplex = interference, half_duplex
         self.airtime = Airtime()
-        self._pipelines = {}
+        self._pipelines, self._interference = {}, None
         self.reset(seed)
 
     def receiver(self) -> List[Block]:
         "The blocks between the power control (or the interference) and the airtime, which decide what arrives (the last one draws it)."
         raise NotImplementedError
 
-    def blocks(
-        self,
-        interference: Block | None = None, # An `Interference`, after the power control (None: none)
-    ) -> List[Block]:
-        "The channel's blocks, in order."
-        return [self.fading, self.power_control, *([interference] if interference is not None else []),
-                *self.receiver(), self.airtime]
+    def blocks(self) -> List[Block]:
+        "The channel's blocks, in order; with `interference`, an `Interference` (of the channel's fading) after the power control."
+        between = []
+        if self.interference:
+            i = self._interference
+            if i is None or i.fading is not self.fading or i.half_duplex != self.half_duplex:
+                self._interference = i = Interference(self.fading, self.half_duplex)
+            between = [i]
+        return [self.fading, self.power_control, *between, *self.receiver(), self.airtime]
 
-    def pipeline(
-        self,
-        interference: Block | None = None, # An `Interference`, after the power control (None: none)
-    ) -> Pipeline:
+    def pipeline(self) -> Pipeline:
         "The channel as a `Pipeline` of its blocks (see `block`), with the step's inputs and `noise_power`."
-        blocks = self.blocks(interference)
+        blocks = self.blocks()
         key = tuple(map(id, blocks))
         if key not in self._pipelines:
             self._pipelines = {key: Pipeline(blocks, inputs=STEP_INPUTS + ('noise_power',))}
         return self._pipelines[key]
-
-    def run(
-        self,
-        pipeline: Pipeline, # This channel's pipeline, e.g. with interference
-        transmissions: List[Tuple[Transmission, Link]], # The transmissions, with their links
-    ) -> List[TransmissionResult]:
-        "The results of transmissions through a pipeline, with this channel's noise power."
-        if not transmissions:
-            return []
-        return to_results(pipeline(**step_inputs(transmissions), noise_power=self.noise_power))
 
     def transmit(
         self,
@@ -106,8 +98,10 @@ class RadioChannel(Channel):
         self,
         transmissions: List[Tuple[Transmission, Link]], # Transmissions, with their links
     ) -> List[TransmissionResult]:
-        "Several transmissions, with one call of each block (much faster with `SionnaErrorModel`)."
-        return self.run(self.pipeline(), transmissions)
+        "Several transmissions, with one call of each block; with `interference`, at the same time (a `Network` step's)."
+        if not transmissions:
+            return []
+        return to_results(self.pipeline()(**step_inputs(transmissions), noise_power=self.noise_power))
 
     def reset(self, seed: int | None = None) -> None:
         "Start over: `seed` reseeds the receiver, the fading and the power control, each with its own seed; the power control forgets its state."
@@ -127,39 +121,3 @@ class RadioChannel(Channel):
         "Where the nodes are, for a fading that depends on it (e.g. `RayTracedFading`)."
         if hasattr(self.fading, 'set_positions'):
             self.fading.set_positions(positions)
-
-# %% ../nbs/radio.ipynb #ffbe28d7
-class InterferenceBackend(PipelineBackend):
-    "The transmissions of a step share the medium: each one's SINR counts the power of the other senders at its receiver."
-
-    def __init__(
-        self,
-        channel: RadioChannel, # System or link level; its fading also gives the interfering paths
-        half_duplex: bool = True, # A node that transmits in a step cannot receive in it
-    ):
-        self.channel, self.half_duplex = channel, half_duplex
-        self._interference = None
-
-    @property
-    def pipeline(self) -> Pipeline:
-        "The channel's blocks, with an `Interference` after the power control."
-        i = self._interference
-        if i is None or i.fading is not self.channel.fading or i.half_duplex != self.half_duplex:
-            self._interference = Interference(self.channel.fading, self.half_duplex)
-        return self.channel.pipeline(self._interference)
-
-    def transmit_all(
-        self,
-        transmissions: List[Tuple[Transmission, Link]], # The transmissions of one step, with their links
-    ) -> List[TransmissionResult]:
-        "The transmissions of one step, at the same time."
-        return self.channel.run(self.pipeline, transmissions)
-
-    def reset(self, seed: int | None = None) -> None:
-        self.channel.reset(seed)
-
-    def step(self, time: float) -> None:
-        self.channel.update(time)
-
-    def set_positions(self, positions) -> None:
-        self.channel.set_positions(positions)

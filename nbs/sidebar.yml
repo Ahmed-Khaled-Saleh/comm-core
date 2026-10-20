@@ -35,6 +35,7 @@ website:
       - section: Radio
         contents:
           - fading.ipynb
+          - ray_tracing.ipynb
           - power_control.ipynb
           - interference.ipynb
           - phy_abstraction.ipynb
@@ -42,4 +43,3 @@ website:
           - radio.ipynb
           - system_level.ipynb
           - link_level.ipynb
-          - sionna_rt.ipynb
