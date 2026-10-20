@@ -12,8 +12,8 @@ from typing import List
 from ...block import Block
 from .phy_abstraction import BPSKErrorModel, Decide, ErrorModel, ThresholdErrorModel
 from ..power_control import PowerControl
-from ..fading import Fading
-from ..interference import SINR
+from ...channel.fading import Fading
+from ...channel.interference import SINR
 from ..channel import RadioChannel
 
 # %% auto #0
@@ -28,21 +28,21 @@ class SystemLevelChannel(RadioChannel):
         fading: Fading | None = None, # The coefficient h of a transmission; None: h = 1
         power_control: PowerControl | None = None, # Transmit power and outages; None: the link's tx_power_w
         noise_power: float = 1.0, # Noise power at the receiver
-        per_model: str | ErrorModel = 'bpsk', # 'bpsk', 'threshold', or an `ErrorModel` (e.g. `SionnaErrorModel`)
+        error_model: str | ErrorModel = 'bpsk', # 'bpsk', 'threshold', or an `ErrorModel` (e.g. `SionnaErrorModel`)
         snr_threshold_db: float = 10.0, # The 'threshold' model's SNR
         seed: int | None = None, # Seed of the packet losses and the fading
         interference: bool = False, # A step's transmissions share the medium (see `RadioChannel`)
         half_duplex: bool = True, # With interference: a node that transmits in a step cannot receive in it
     ):
-        if isinstance(per_model, ErrorModel):
-            self.error_model = per_model
-        elif per_model == 'bpsk':
+        if isinstance(error_model, ErrorModel):
+            self.error_model = error_model
+        elif error_model == 'bpsk':
             self.error_model = BPSKErrorModel()
-        elif per_model == 'threshold':
+        elif error_model == 'threshold':
             self.error_model = ThresholdErrorModel(snr_threshold_db)
         else:
-            raise ValueError(f"per_model: 'bpsk', 'threshold' or an ErrorModel, not {per_model!r}")
-        self.per_model, self.snr_threshold_db = per_model, snr_threshold_db
+            raise ValueError(f"error_model: 'bpsk', 'threshold' or an ErrorModel, not {error_model!r}")
+        self.snr_threshold_db = snr_threshold_db
         self.sinr, self.decide = SINR(), Decide()
         super().__init__(fading, power_control, noise_power, seed, interference, half_duplex)
 

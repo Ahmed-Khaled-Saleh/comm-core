@@ -34,7 +34,7 @@ from comm_core.net.topology import (
     distance,
 )
 
-from comm_core.net.channel import (
+from comm_core.net.transmission import (
     Channel,
     IdentityChannel,
     ErasureChannel,
@@ -67,7 +67,7 @@ from comm_core.net.metrics import (
 )
 
 # signal processing
-from comm_core.dsp.source_coding import (
+from comm_core.source.codec import (
     to_bits,
     from_bits,
     Codec,
@@ -75,19 +75,19 @@ from comm_core.dsp.source_coding import (
     UniformQuantizer,
 )
 
-from comm_core.dsp.modulation import (
+from comm_core.modulation.constellation import (
     Modulation,
     BPSK,
     SionnaModulation,
 )
 
-from comm_core.dsp.signal import (
+from comm_core.channel.awgn import (
     awgn,
     apply_channel,
 )
 
 # radio: what both levels share, in the order of a channel's blocks
-from comm_core.radio.fading import (
+from comm_core.channel.fading import (
     Fading,
     NoFading,
     RayleighFading,
@@ -95,7 +95,7 @@ from comm_core.radio.fading import (
     effective_coefficient,
 )
 
-from comm_core.radio.ray_tracing import (
+from comm_core.channel.ray_tracing import (
     RayTracedFading,
     RayTracedPathsFading,
     grid_points,
@@ -113,7 +113,7 @@ from comm_core.radio.power_control import (
     fit_gain_predictor,
 )
 
-from comm_core.radio.interference import (
+from comm_core.channel.interference import (
     Interference,
     SINR,
 )

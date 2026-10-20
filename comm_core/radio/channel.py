@@ -14,11 +14,11 @@ import numpy as np
 
 from ..net.backend import STEP_INPUTS, step_inputs, to_results
 from ..block import Block, Pipeline, _child_seed
-from ..net.channel import Channel
+from ..net.transmission import Channel
 from ..core import Transmission, TransmissionResult
-from .interference import Interference
+from ..channel.interference import Interference
 from .power_control import FixedPower, PowerControl
-from .fading import Fading, NoFading
+from ..channel.fading import Fading, NoFading
 from ..net.topology import Link
 
 # %% auto #0

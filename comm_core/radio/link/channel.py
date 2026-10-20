@@ -15,11 +15,11 @@ import numpy as np
 
 from ...block import Block
 from ...core import Message, Transmission, TransmissionResult
-from ...dsp.modulation import BPSK, Modulation
-from ...dsp.signal import apply_channel
-from ...dsp.source_coding import Codec, IndexCodec
-from ..fading import Fading, effective_coefficient
-from ..interference import SINR
+from ...modulation.constellation import BPSK, Modulation
+from ...channel.awgn import apply_channel
+from ...source.codec import Codec, IndexCodec
+from ...channel.fading import Fading, effective_coefficient
+from ...channel.interference import SINR
 from ..link_adaptation import NRMCSTable
 from ..system.phy_abstraction import SionnaErrorModel
 from ..power_control import PowerControl

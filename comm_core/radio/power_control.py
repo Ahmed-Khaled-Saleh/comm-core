@@ -16,7 +16,7 @@ import numpy as np
 
 from ..block import Block, _full, _is_torch
 from ..core import Message, Transmission
-from .fading import effective_coefficient
+from ..channel.fading import effective_coefficient
 from ..net.topology import Link
 
 # %% auto #0

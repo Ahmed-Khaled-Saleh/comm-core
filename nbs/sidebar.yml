@@ -24,23 +24,23 @@ website:
       - section: Network
         contents:
           - net/topology.ipynb
-          - net/channel.ipynb
+          - net/transmission.ipynb
           - net/protocol.ipynb
           - net/backend.ipynb
           - net/network.ipynb
           - net/metrics.ipynb
       - section: Signal processing
         contents:
-          - dsp/source_coding.ipynb
-          - dsp/modulation.ipynb
-          - dsp/signal.ipynb
+          - source/codec.ipynb
+          - modulation/constellation.ipynb
+          - channel/awgn.ipynb
       - section: Radio
         contents:
           - radio/channel.ipynb
-          - radio/fading.ipynb
-          - radio/ray_tracing.ipynb
+          - channel/fading.ipynb
+          - channel/ray_tracing.ipynb
           - radio/power_control.ipynb
-          - radio/interference.ipynb
+          - channel/interference.ipynb
           - radio/link_adaptation.ipynb
       - section: System level
         contents:

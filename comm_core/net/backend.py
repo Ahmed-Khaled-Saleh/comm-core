@@ -15,9 +15,9 @@ import numpy as np
 
 from ..block import Block, Pipeline
 from ..core import Transmission, TransmissionResult
-from ..radio.fading import effective_coefficient
+from ..channel.fading import effective_coefficient
 from .topology import Link
-from .channel import Channel
+from .transmission import Channel
 
 
 class CommunicationBackend(ABC):
