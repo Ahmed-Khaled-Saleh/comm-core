@@ -19,27 +19,43 @@ website:
       - section: Core
         contents:
           - 00_core.ipynb
-          - topology.ipynb
-          - channel.ipynb
-          - protocol.ipynb
           - block.ipynb
-          - backend.ipynb
-          - network.ipynb
-          - metrics.ipynb
           - init.ipynb
-      - section: Signal processing
+      - section: Network
         contents:
-          - dsp/source_coding.ipynb
-          - dsp/modulation.ipynb
-          - dsp/signal.ipynb
+          - net/topology.ipynb
+          - net/transmission.ipynb
+          - net/protocol.ipynb
+          - net/backend.ipynb
+          - net/network.ipynb
+          - net/metrics.ipynb
+      - section: Processing
+        contents:
+          - source/codec.ipynb
+          - coding/uncoded.ipynb
+          - coding/nr.ipynb
+          - modulation/constellation.ipynb
+          - modulation/mapping.ipynb
+          - waveform/single_carrier.ipynb
+          - waveform/ofdm.ipynb
+          - equalization/one_tap.ipynb
+      - section: Channel
+        contents:
+          - channel/fading.ipynb
+          - channel/ray_tracing.ipynb
+          - channel/interference.ipynb
+          - channel/awgn.ipynb
       - section: Radio
         contents:
-          - fading.ipynb
-          - power_control.ipynb
-          - interference.ipynb
-          - phy_abstraction.ipynb
-          - link_adaptation.ipynb
-          - radio.ipynb
-          - system_level.ipynb
-          - link_level.ipynb
-          - sionna_rt.ipynb
+          - radio/power_control.ipynb
+          - radio/link_adaptation.ipynb
+          - radio/channel.ipynb
+      - section: System level
+        contents:
+          - radio/system/phy_abstraction.ipynb
+          - radio/system/channel.ipynb
+      - section: Link level
+        contents:
+          - radio/link/chain.ipynb
+          - radio/link/presets.ipynb
+          - radio/link/channel.ipynb
