@@ -7,6 +7,7 @@ Docs: https://Ahmed-Khaled-Saleh.github.io/comm-core/block.html.md"""
 # %% ../nbs/block.ipynb #f612f595
 from __future__ import annotations
 
+import functools
 import inspect
 from typing import Any, Callable, Iterator, Mapping, Sequence
 
@@ -45,8 +46,18 @@ def _full(like, value, boolean: bool = False):
     return np.full(np.shape(like), value, dtype=bool if boolean else float)
 
 
-def _params(f) -> list:
-    return [p for p in inspect.signature(f).parameters.values() if p.kind not in (p.VAR_POSITIONAL, p.VAR_KEYWORD)]
+def _params(f) -> tuple:
+    "The named parameters of `f` (of a method, without `self`: cached per function, as blocks are called often)."
+    func = getattr(f, '__func__', None)
+    if func is None:
+        return tuple(p for p in inspect.signature(f).parameters.values() if p.kind not in (p.VAR_POSITIONAL, p.VAR_KEYWORD))
+    return _method_params(func)
+
+
+@functools.lru_cache(maxsize=None)
+def _method_params(func) -> tuple:
+    return tuple(p for p in list(inspect.signature(func).parameters.values())[1:]
+                 if p.kind not in (p.VAR_POSITIONAL, p.VAR_KEYWORD))
 
 # %% ../nbs/block.ipynb #ca9b0eed
 class Block:

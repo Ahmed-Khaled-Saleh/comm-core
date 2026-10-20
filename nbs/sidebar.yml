@@ -29,23 +29,33 @@ website:
           - net/backend.ipynb
           - net/network.ipynb
           - net/metrics.ipynb
-      - section: Signal processing
+      - section: Processing
         contents:
           - source/codec.ipynb
+          - coding/uncoded.ipynb
+          - coding/nr.ipynb
           - modulation/constellation.ipynb
+          - modulation/mapping.ipynb
+          - waveform/single_carrier.ipynb
+          - waveform/ofdm.ipynb
+          - equalization/one_tap.ipynb
+      - section: Channel
+        contents:
+          - channel/fading.ipynb
+          - channel/ray_tracing.ipynb
+          - channel/interference.ipynb
           - channel/awgn.ipynb
       - section: Radio
         contents:
-          - radio/channel.ipynb
-          - channel/fading.ipynb
-          - channel/ray_tracing.ipynb
           - radio/power_control.ipynb
-          - channel/interference.ipynb
           - radio/link_adaptation.ipynb
+          - radio/channel.ipynb
       - section: System level
         contents:
           - radio/system/phy_abstraction.ipynb
           - radio/system/channel.ipynb
       - section: Link level
         contents:
+          - radio/link/chain.ipynb
+          - radio/link/presets.ipynb
           - radio/link/channel.ipynb

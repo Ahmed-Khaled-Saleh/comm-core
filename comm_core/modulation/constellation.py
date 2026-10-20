@@ -1,4 +1,4 @@
-"""Bits to symbols, and back.
+"""Bits to symbols and back: BPSK, and any of Sionna's constellations; hard decisions and soft bits (LLRs).
 
 Docs: https://Ahmed-Khaled-Saleh.github.io/comm-core/modulation/constellation.html.md"""
 
@@ -40,6 +40,10 @@ class Modulation(ABC):
     def demodulate(self, received, h):
         "The detected bits (booleans) of the received symbols, knowing the channel coefficients `h`."
 
+    def llr(self, x_hat, no):
+        "Soft bits of equalized symbols with noise power `no`: log p(1) / p(0), (..., num_symbols * bits_per_symbol)."
+        raise NotImplementedError(f"{type(self).__name__} gives no soft bits")
+
 
 class BPSK(Modulation):
     "Binary phase-shift keying, labelled as Sionna's 1-bit PAM: bit 0 -> +1, bit 1 -> -1."
@@ -53,6 +57,10 @@ class BPSK(Modulation):
         "Matched filter, which is the maximum-likelihood detector for BPSK: bit 1 where Re(y h*) is negative."
         return _real(received * _conj(h)) < 0
 
+    def llr(self, x_hat, no):
+        "log p(1) / p(0) = -4 Re(x̂) / no."
+        return -4 * _real(x_hat) / no
+
 # %% ../../nbs/modulation/constellation.ipynb #00db6808
 class SionnaModulation(Modulation):
     "A Sionna constellation (QAM, PAM, custom) as a `Modulation`: Sionna's `Mapper`; a one-tap equalizer, then its `Demapper`'s hard decisions."
@@ -64,6 +72,7 @@ class SionnaModulation(Modulation):
         constellation=None, # A `sionna.phy.mapping.Constellation`, instead of the two above
         device: str | None = None, # Torch device; None: Sionna's default (a GPU if there is one)
         precision: str = 'single', # 'single' or 'double'
+        demapping_method: str = 'maxlog', # The soft bits' (`llr`): 'maxlog' or 'app'
     ):
         import torch
         from sionna.phy.mapping import Demapper, Mapper
@@ -75,6 +84,7 @@ class SionnaModulation(Modulation):
         self.constellation = self.mapper.constellation
         self.demapper = Demapper('maxlog', constellation=self.constellation, hard_out=True, precision=precision,
                                  device=device)
+        self.soft = Demapper(demapping_method, constellation=self.constellation, precision=precision, device=device)
         self.bits_per_symbol = int(self.constellation.num_bits_per_symbol)
         self.device = self.mapper.device
         self.real = torch.float64 if precision == 'double' else torch.float32
@@ -92,3 +102,10 @@ class SionnaModulation(Modulation):
         hh = torch.as_tensor(h, device=self.device).to(self.complex)
         bits = self.demapper(y / hh, torch.ones((), dtype=self.real, device=self.device)) > 0.5
         return bits if _is_torch(received) else bits.cpu().numpy()
+
+    def llr(self, x_hat, no):
+        "Sionna's `Demapper` (`demapping_method`): log p(1) / p(0) of each bit."
+        torch = self._torch
+        out = self.soft(torch.as_tensor(x_hat, device=self.device).to(self.complex),
+                        torch.as_tensor(no, device=self.device).to(self.real))
+        return out if _is_torch(x_hat) else out.cpu().numpy()

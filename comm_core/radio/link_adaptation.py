@@ -16,7 +16,7 @@ import numpy as np
 from ..block import Block, _is_torch
 
 # %% auto #0
-__all__ = ['MAX_CODERATE', 'LinkAdaptation', 'nr_allocation', 'NRMCSTable']
+__all__ = ['MAX_CODERATE', 'LinkAdaptation', 'nr_allocation', 'NRMCSTable', 'NRLinkAdaptation']
 
 # %% ../../nbs/radio/link_adaptation.ipynb #a88a4ee8
 class LinkAdaptation(Block):
@@ -126,3 +126,32 @@ class NRMCSTable:
         if (num_bits, mcs) not in self._allocations:
             self._allocations[num_bits, mcs] = nr_allocation(num_bits, *self.mcs(mcs))
         return self._allocations[num_bits, mcs]
+
+# %% ../../nbs/radio/link_adaptation.ipynb #488c4232
+class NRLinkAdaptation(Block):
+    "Each transmission's MCS (fixed, or meeting a BLER target at its SINR) and its 5G NR allocation: the coding and mapping parameters."
+
+    outputs = ('mcs', 'num_bits_per_symbol', 'coderate', 'resource_elements', 'tb_size', 'num_coded_bits')
+
+    def __init__(
+        self,
+        error_model, # A `SionnaErrorModel` (see `radio.system.phy_abstraction`): the table, the candidates, the BLER target or a fixed MCS
+    ):
+        self.error_model = error_model
+
+    def call(
+        self,
+        sinr, # SINR of each transmission at each subcarrier, (n, K)
+        num_bits, # Their payload sizes, (n,)
+        group=None, # The broadcast of each, None for a unicast
+    ) -> dict:
+        "The parameters of each transmission, each (n,)."
+        _, _, rated = self.error_model(list(sinr), np.asarray(num_bits), group=group)
+        out = {name: [] for name in self.outputs}
+        for i, b in zip(rated, num_bits):
+            m = i['mcs']
+            q, r = self.error_model.table.mcs(m)
+            num_re, tb_size = self.error_model.allocation(int(b), m)
+            for name, v in zip(self.outputs, (m, q, r, num_re, tb_size, num_re * q)):
+                out[name].append(v)
+        return {name: np.array(v) for name, v in out.items()}

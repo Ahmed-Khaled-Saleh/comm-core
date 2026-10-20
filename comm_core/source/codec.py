@@ -1,4 +1,4 @@
-"""A payload as bits, and back: integers, codebook indices, quantized real numbers.
+"""A payload as bits, and back: integers, codebook indices, quantized real numbers and vectors.
 
 Docs: https://Ahmed-Khaled-Saleh.github.io/comm-core/source/codec.html.md"""
 
@@ -15,7 +15,7 @@ import numpy as np
 from ..block import _is_torch
 
 # %% auto #0
-__all__ = ['to_bits', 'from_bits', 'Codec', 'IndexCodec', 'UniformQuantizer']
+__all__ = ['to_bits', 'from_bits', 'Codec', 'IndexCodec', 'UniformQuantizer', 'VectorQuantizer']
 
 # %% ../../nbs/source/codec.ipynb #6c8f6ee6
 def _arange(n: int, like):
@@ -109,3 +109,39 @@ class UniformQuantizer(Codec):
 
     def decode(self, bits):
         return self.low + from_bits(bits, self.bits) * ((self.high - self.low) / self.levels)
+
+
+class VectorQuantizer(Codec):
+    "Vectors, each replaced by the nearest codeword of a codebook and sent as its index (ceil(log2(size)) bits)."
+
+    def __init__(
+        self,
+        codebook, # The codewords, (C, d): e.g. a VQ-VAE's embeddings
+    ):
+        self.codebook = codebook
+        self.index = IndexCodec(len(codebook))
+        self.bits_per_index = self.index.bits_per_index
+
+    def quantize(
+        self,
+        payload, # Vectors, (..., d)
+    ):
+        "The index of each vector's nearest codeword, (...)."
+        x = _as_array(payload, dtype=float)
+        if _is_torch(x):
+            import torch
+            book = torch.as_tensor(self.codebook, dtype=x.dtype, device=x.device)
+            return ((x[..., None, :] - book) ** 2).sum(-1).argmin(-1)
+        return ((x[..., None, :] - np.asarray(self.codebook, float)) ** 2).sum(-1).argmin(-1)
+
+    def encode(self, payload):
+        "`payload`: vectors, (..., M, d) -> bits, (..., M * bits_per_index)."
+        return self.index.encode(self.quantize(payload))
+
+    def decode(self, bits):
+        "The codewords, (..., M, d). Bit errors that give an index past the codebook give its last codeword."
+        i = self.index.decode(bits)
+        if _is_torch(i):
+            import torch
+            return torch.as_tensor(self.codebook, device=i.device)[i.clamp(max=len(self.codebook) - 1)]
+        return np.asarray(self.codebook)[np.minimum(i, len(self.codebook) - 1)]

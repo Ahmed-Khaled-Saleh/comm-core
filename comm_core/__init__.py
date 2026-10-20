@@ -66,27 +66,50 @@ from comm_core.net.metrics import (
     MetricsCollector,
 )
 
-# signal processing
+# source coding
 from comm_core.source.codec import (
     to_bits,
     from_bits,
     Codec,
     IndexCodec,
     UniformQuantizer,
+    VectorQuantizer,
 )
 
+# channel coding
+from comm_core.coding.uncoded import (
+    NoCoding,
+    HardDecision,
+)
+
+from comm_core.coding.nr import (
+    MIN_LDPC_CODERATE,
+    NRTBEncoder,
+    NRTBDecoder,
+)
+
+# modulation
 from comm_core.modulation.constellation import (
     Modulation,
     BPSK,
     SionnaModulation,
 )
 
-from comm_core.channel.awgn import (
-    awgn,
-    apply_channel,
+from comm_core.modulation.mapping import (
+    Mapper,
+    Demapper,
 )
 
-# radio: what both levels share, in the order of a channel's blocks
+# waveform
+from comm_core.waveform.single_carrier import (
+    SingleCarrier,
+)
+
+from comm_core.waveform.ofdm import (
+    OFDM,
+)
+
+# the channel
 from comm_core.channel.fading import (
     Fading,
     NoFading,
@@ -102,6 +125,23 @@ from comm_core.channel.ray_tracing import (
     trace_paths,
 )
 
+from comm_core.channel.interference import (
+    Interference,
+    SINR,
+)
+
+from comm_core.channel.awgn import (
+    awgn,
+    apply_channel,
+    ApplyChannel,
+)
+
+# equalization
+from comm_core.equalization.one_tap import (
+    OneTapEqualizer,
+)
+
+# radio: the decisions and the radio channels
 from comm_core.radio.power_control import (
     PowerControl,
     FixedPower,
@@ -113,15 +153,11 @@ from comm_core.radio.power_control import (
     fit_gain_predictor,
 )
 
-from comm_core.channel.interference import (
-    Interference,
-    SINR,
-)
-
 from comm_core.radio.link_adaptation import (
     LinkAdaptation,
     NRMCSTable,
     nr_allocation,
+    NRLinkAdaptation,
 )
 
 from comm_core.radio.channel import (
@@ -147,11 +183,17 @@ from comm_core.radio.system.channel import (
 )
 
 # the link level
+from comm_core.radio.link.chain import (
+    LinkChain,
+)
+
+from comm_core.radio.link.presets import (
+    UncodedChain,
+    NRChain,
+)
+
 from comm_core.radio.link.channel import (
-    BitLevelLink,
     LinkLevelChannel,
-    SionnaLink,
-    SionnaLinkChannel,
 )
 
 __all__ = [
@@ -196,21 +238,36 @@ __all__ = [
     "CommunicationMetrics",
     "MetricsCollector",
 
-    # signal processing
+    # source coding
     "to_bits",
     "from_bits",
     "Codec",
     "IndexCodec",
     "UniformQuantizer",
+    "VectorQuantizer",
 
+    # channel coding
+    "NoCoding",
+    "HardDecision",
+
+    "MIN_LDPC_CODERATE",
+    "NRTBEncoder",
+    "NRTBDecoder",
+
+    # modulation
     "Modulation",
     "BPSK",
     "SionnaModulation",
 
-    "awgn",
-    "apply_channel",
+    "Mapper",
+    "Demapper",
 
-    # radio: what both levels share, in the order of a channel's blocks
+    # waveform
+    "SingleCarrier",
+
+    "OFDM",
+
+    # the channel
     "Fading",
     "NoFading",
     "RayleighFading",
@@ -222,6 +279,17 @@ __all__ = [
     "grid_points",
     "trace_paths",
 
+    "Interference",
+    "SINR",
+
+    "awgn",
+    "apply_channel",
+    "ApplyChannel",
+
+    # equalization
+    "OneTapEqualizer",
+
+    # radio: the decisions and the radio channels
     "PowerControl",
     "FixedPower",
     "ChannelInversion",
@@ -231,12 +299,10 @@ __all__ = [
     "gain_windows",
     "fit_gain_predictor",
 
-    "Interference",
-    "SINR",
-
     "LinkAdaptation",
     "NRMCSTable",
     "nr_allocation",
+    "NRLinkAdaptation",
 
     "Airtime",
     "RadioChannel",
@@ -255,8 +321,10 @@ __all__ = [
     "SystemLevelChannel",
 
     # the link level
-    "BitLevelLink",
+    "LinkChain",
+
+    "UncodedChain",
+    "NRChain",
+
     "LinkLevelChannel",
-    "SionnaLink",
-    "SionnaLinkChannel",
 ]

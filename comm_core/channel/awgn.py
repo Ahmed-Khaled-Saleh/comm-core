@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..block import _is_torch
+from ..block import Block, _is_torch
 
 # %% auto #0
-__all__ = ['awgn', 'apply_channel']
+__all__ = ['awgn', 'apply_channel', 'ApplyChannel']
 
 # %% ../../nbs/channel/awgn.ipynb #06cfbbdb
 def awgn(
@@ -42,3 +42,34 @@ def apply_channel(
     "What the receiver gets: y = h √P x + n."
     signal = h * power ** 0.5 * symbols
     return signal + awgn(signal, noise_power, rng)
+
+# %% ../../nbs/channel/awgn.ipynb #3c8aa954
+def _per_row(no, like):
+    "Each transmission's value, broadcast against its symbols (a tensor of `like`'s real type on its device, or numpy)."
+    if _is_torch(like):
+        import torch
+        return torch.as_tensor(np.asarray(no, float), dtype=like.real.dtype, device=like.device).reshape(
+            (len(no),) + (1,) * (like.dim() - 1))
+    return np.asarray(no, float).reshape((len(no),) + (1,) * (np.ndim(like) - 1))
+
+
+class ApplyChannel(Block):
+    "What the receiver gets: y = h x + n, n ~ CN(0, no) with each transmission's noise power (the interference included)."
+
+    outputs = ('y',)
+
+    def call(
+        self,
+        x, # The symbols, (B, ..., S)
+        h_sym, # The channel of each symbol, √P included, broadcast against x
+        no, # Each transmission's noise power, (B,)
+    ):
+        "y, like x."
+        if _is_torch(x):
+            import torch
+            gen = torch.Generator(device=x.device).manual_seed(int(self.rng.integers(2 ** 62)))
+            real = x.real.dtype
+            noise = torch.complex(torch.randn(x.shape, generator=gen, device=x.device, dtype=real),
+                                  torch.randn(x.shape, generator=gen, device=x.device, dtype=real))
+            return h_sym * x + noise * torch.sqrt(_per_row(no, x) / 2)
+        return np.stack([apply_channel(x[b], h_sym[b], 1.0, float(no[b]), self.rng) for b in range(len(x))])
